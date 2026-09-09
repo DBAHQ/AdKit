@@ -69,22 +69,26 @@ public class AdManager {
     public func getEligibleProviders(for adType: AdType) -> [AdProvider] {
         // Rule 1: Global Ad Permission
         guard AdKit.remoteConfig.isAdEnabled else {
+            AdKitLog.log("providers(\(adType)) = [] — isAdEnabled = false")
             return []
         }
         
         // Rule 2: Special Flag for App Open Ads
         if adType == .appOpen, !AdKit.remoteConfig.isAppOpenAdEnabled {
+            AdKitLog.log("providers(appOpen) = [] — isAppOpenAdEnabled = false")
             return []
         }
         
         // Rule 3: Get provider from AppSettingsDTO (backend already considers region and app version)
         guard let mediationProviderString = AdKit.appSettings.mediationProvider,
               !mediationProviderString.isEmpty else {
+            AdKitLog.log("providers(\(adType)) = [admob] — mediationProvider пуст (настройки загружены: \(AdKit.appSettings.areSettingsLoaded))")
             return [.admob]
         }
         
         // Rule 4: Parse provider
         guard let provider = AdProvider(rawValue: mediationProviderString) else {
+            AdKitLog.log("providers(\(adType)) = [admob] — не распознан mediationProvider '\(mediationProviderString)'")
             return [.admob]
         }
         
@@ -105,8 +109,10 @@ public class AdManager {
         
         let disabledProviders = disabledProvidersConfig.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         if disabledProviders.contains(provider.rawValue.lowercased()) {
+            AdKitLog.log("providers(\(adType)) = [] — \(provider.rawValue) отключён строкой '\(disabledProvidersConfig)'")
             return []
         }
+        AdKitLog.log("providers(\(adType)) = [\(provider.rawValue)]")
         return [provider]
     }
     

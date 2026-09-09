@@ -407,9 +407,11 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
         let providers = AdManager.shared.getEligibleProviders(for: .native)
 
         guard let provider = providers.first else {
+            AdKitLog.log("native '\(adUnit.placement)': провайдеров нет, загрузка отменена")
             isLoadingAd = false
             return
         }
+        AdKitLog.log("native '\(adUnit.placement)': провайдер \(provider.rawValue)")
         // Помечаем, что начальная загрузка уже запущена, чтобы layoutSubviews
         // не дёрнул loadAd() повторно (иначе уходит двойной adDidRequest).
         isAdLoadTriggered = true
@@ -427,6 +429,7 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     private func loadBannerAd() {
         guard canRequestAd("Banner") else { return }
         guard let bannerPlacement = adUnit.bannerFallback else {
+            AdKitLog.log("native '\(adUnit.placement)': нет баннерного фолбэка для Яндекса")
             isLoadingAd = false
             return
         }

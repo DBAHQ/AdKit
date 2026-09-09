@@ -17,12 +17,14 @@ public enum AdBannerContainer {
     /// Обычный баннер. Возвращает вставленную вью или `nil`, если показывать нечего.
     @discardableResult
     public static func installBanner(_ placement: AdPlacement, in container: UIView) -> UIView? {
-        AMBannerAd.get(placement, size: .large).loadAd(containerView: container)
+        AdKitLog.log("контейнер: баннер для '\(placement.placement)'")
+        return AMBannerAd.get(placement, size: .large).loadAd(containerView: container)
     }
 
     /// Нативная реклама. Возвращает вставленную вью.
     @discardableResult
     public static func installNative(_ placement: NativeAdPlacement, in container: UIView) -> UIView {
-        AMNativeAd.get(with: placement).loadAd(in: container)
+        AdKitLog.log("контейнер: нативка для '\(placement.placement)'")
+        return AMNativeAd.get(with: placement).loadAd(in: container)
     }
 }

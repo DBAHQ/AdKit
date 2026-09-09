@@ -127,6 +127,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     // MARK: - Ad Loading
     
     func loadAd(containerView: UIView) -> UIView? {
+        AdKitLog.log("banner '\(ad.placement)': загрузка")
         let providers = AdManager.shared.getEligibleProviders(for: .banner)
         
         guard let provider = providers.first else {
@@ -134,6 +135,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
             return nil
         }
         
+        AdKitLog.log("banner '\(ad.placement)': провайдер \(provider.rawValue)")
         switch provider {
         case .yandex:
             return loadYandexAd(containerView: containerView)
@@ -146,8 +148,10 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     
     private func loadYandexAd(containerView: UIView) -> UIView? {
         guard isAdsAvailableOnDevice, !isUserSubscriber else {
+            AdKitLog.log("banner '\(ad.placement)': Яндекс пропущен — доступна на устройстве: \(isAdsAvailableOnDevice), подписчик: \(isUserSubscriber)")
             return nil
         }
+        AdKitLog.log("banner '\(ad.placement)': запрос Яндекса, юнит \(ad.yandexID)")
         
         guard containerView.frame.width > 0 else {
             return nil
