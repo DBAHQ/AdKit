@@ -13,6 +13,10 @@ Pod::Spec.new do |s|
   s.author           = { 'ak' => 'ak@ironsum.com' }
   s.source           = { :git => 'git@github.com:DBAHQ/AdKit.git', :tag => s.version.to_s }
 
+  # Часть рекламных SDK (Yandex, Vungle, Mintegral, UserMessagingPlatform) поставляется
+  # статическими xcframework. Динамический фреймворк их прилинковать не может, поэтому
+  # AdKit собирается статически. Заодно это совпадает с линковкой в GoTrading/Gocrypto.
+  s.static_framework      = true
   s.ios.deployment_target = '15.0'
   s.swift_version         = '5.0'
   s.source_files          = 'AdKit/Classes/**/*.swift'

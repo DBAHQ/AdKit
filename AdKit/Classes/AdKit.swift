@@ -5,9 +5,66 @@
 
 import Foundation
 
+/// Всё, что приложение обязано передать пакету до первого обращения к рекламе.
+public struct AdConfiguration {
+
+    public let remoteConfig: AdRemoteConfigProviding
+    public let appSettings: AdAppSettingsProviding
+    public let analytics: AdAnalyticsSink
+    public let storage: AdStorage
+    public let host: AdHostEnvironment
+    public let theme: AdTheme
+
+    public init(
+        remoteConfig: AdRemoteConfigProviding,
+        appSettings: AdAppSettingsProviding,
+        analytics: AdAnalyticsSink,
+        storage: AdStorage,
+        host: AdHostEnvironment,
+        theme: AdTheme
+    ) {
+        self.remoteConfig = remoteConfig
+        self.appSettings = appSettings
+        self.analytics = analytics
+        self.storage = storage
+        self.host = host
+        self.theme = theme
+    }
+}
+
 /// Пространство имён и точка входа пакета.
 public enum AdKit {
 
     /// Версия пакета. Совпадает с версией в podspec.
     public static let version = "0.1.0"
+
+    private static var storedConfiguration: AdConfiguration?
+
+    /// Настроен ли пакет. Полезно, чтобы не дёргать рекламу слишком рано.
+    public static var isConfigured: Bool { storedConfiguration != nil }
+
+    /// Вызывается один раз, в `application(_:didFinishLaunchingWithOptions:)`,
+    /// до любого обращения к рекламе.
+    public static func configure(_ configuration: AdConfiguration) {
+        storedConfiguration = configuration
+    }
+
+    /// Доступ к настройкам изнутри пакета.
+    static var configuration: AdConfiguration {
+        guard let configuration = storedConfiguration else {
+            preconditionFailure(
+                "AdKit не настроен. Вызовите AdKit.configure(_:) в didFinishLaunchingWithOptions "
+                + "до первого обращения к рекламе."
+            )
+        }
+        return configuration
+    }
+
+    // Короткие псевдонимы, чтобы перенесённый код читался как прежде.
+    static var remoteConfig: AdRemoteConfigProviding { configuration.remoteConfig }
+    static var appSettings: AdAppSettingsProviding { configuration.appSettings }
+    static var analytics: AdAnalyticsSink { configuration.analytics }
+    static var storage: AdStorage { configuration.storage }
+    static var host: AdHostEnvironment { configuration.host }
+    static var theme: AdTheme { configuration.theme }
 }
