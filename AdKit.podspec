@@ -19,7 +19,10 @@ Pod::Spec.new do |s|
   s.static_framework      = true
   s.ios.deployment_target = '15.0'
   s.swift_version         = '5.0'
-  s.source_files          = 'AdKit/Classes/**/*.swift'
+  # .h — вендоренные Google превью-заголовки для preload-API: они лежат внутри
+  # GoogleMobileAds.framework, но не входят в его modulemap, поэтому в Swift без них
+  # не видно PreloadDelegate/PreloadConfigurationV2/InterstitialAdPreloader.
+  s.source_files          = 'AdKit/Classes/**/*.{swift,h}'
 
   # Рекламные SDK, которые импортирует код пакета. Версии намеренно не пиннятся:
   # их выбирает Podfile приложения, чтобы не разъехаться с остальными подами.
