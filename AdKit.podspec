@@ -1,0 +1,30 @@
+Pod::Spec.new do |s|
+  s.name             = 'AdKit'
+  s.version          = '0.1.0'
+  s.summary          = 'Общий рекламный слой для приложений DBAHQ.'
+  s.description      = <<-DESC
+                       Медиация, загрузка и показ рекламы (AppOpen, interstitial, rewarded,
+                       banner, native), CPM-бэкофф, preload и инициализация рекламных SDK.
+                       Всё прикладное — плейсменты, Remote Config, аналитика, хранилище,
+                       оформление — приложение передаёт через протоколы из AdKit/Classes/API.
+                       DESC
+  s.homepage         = 'https://github.com/DBAHQ/AdKit'
+  s.license          = { :type => 'Proprietary', :file => 'LICENSE' }
+  s.author           = { 'ak' => 'ak@ironsum.com' }
+  s.source           = { :git => 'git@github.com:DBAHQ/AdKit.git', :tag => s.version.to_s }
+
+  s.ios.deployment_target = '15.0'
+  s.swift_version         = '5.0'
+  s.source_files          = 'AdKit/Classes/**/*.swift'
+
+  # Рекламные SDK, которые импортирует код пакета. Версии намеренно не пиннятся:
+  # их выбирает Podfile приложения, чтобы не разъехаться с остальными подами.
+  s.dependency 'Google-Mobile-Ads-SDK'
+  s.dependency 'GoogleUserMessagingPlatform'
+  s.dependency 'AppLovinSDK'
+  s.dependency 'YandexMobileAds'
+  s.dependency 'GoogleMobileAdsMediationMintegral'
+  s.dependency 'VungleAds'
+  s.dependency 'FBAudienceNetwork'
+  s.dependency 'Adjust/AdjustGoogleOdm'
+end
