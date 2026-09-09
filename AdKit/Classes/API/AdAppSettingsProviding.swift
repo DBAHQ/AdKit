@@ -15,4 +15,8 @@ public protocol AdAppSettingsProviding: AnyObject {
     /// `nil` или пустая строка означают, что настройки ещё не загружены —
     /// в этом случае пакет откатывается на AdMob.
     var mediationProvider: String? { get }
+
+    /// Настройки с бекенда уже получены. На первом запуске это `false`, и пакет
+    /// не создаёт рекламные инстансы, чтобы они не залипли мёртвыми до конца сессии.
+    var areSettingsLoaded: Bool { get }
 }
