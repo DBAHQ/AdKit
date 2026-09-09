@@ -8,7 +8,7 @@ import GoogleMobileAds
 import YandexMobileAds
 import AppLovinSDK
 
-class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoaderDelegate, InterstitialAdDelegate, MAAdDelegate, MAAdRevenueDelegate, PreloadDelegate {
+public class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoaderDelegate, InterstitialAdDelegate, MAAdDelegate, MAAdRevenueDelegate, PreloadDelegate {
     
     // MARK: - Properties
     
@@ -43,7 +43,7 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     
     // MARK: - Inits
     
-    init(ad: AdPlacement) {
+    public init(ad: AdPlacement) {
         self.ad = ad
         super.init()
         self.loadAd()
@@ -155,7 +155,7 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     
     // MARK: - Ad Presentation
     
-    func present(in viewController: UIViewController) {
+    public func present(in viewController: UIViewController) {
             if yandexInterstitial != nil {
                 presentYandex(in: viewController)
             } else if appLovinInterstitial != nil {
@@ -238,62 +238,62 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     
     // MARK: - Setters
     
-    func setDidShowHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
+    public func setDidShowHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
         self.didShowHandler = handler
         return self
     }
 
-    func setDidLoadHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
+    public func setDidLoadHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
         self.didLoadHandler = handler
         return self
     }
 
-    func setDidCloseHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
+    public func setDidCloseHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
         self.didCloseHandler = handler
         return self
     }
 
-    func setDidFailPresentHandler(_ handler: ((Error?) -> ())?) -> AMInterstitialAd {
+    public func setDidFailPresentHandler(_ handler: ((Error?) -> ())?) -> AMInterstitialAd {
         self.didFailPresentHandler = handler
         return self
     }
 
-    func setDidClickHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
+    public func setDidClickHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
         self.didClickHandler = handler
         return self
     }
 
-    func setNoAdsAvailableHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
+    public func setNoAdsAvailableHandler(_ handler: (() -> ())?) -> AMInterstitialAd {
         self.noAdsAvailableHandler = handler
         return self
     }
     
     // MARK: - GADFullScreenContentDelegate
     
-    func adWillPresentFullScreenContent(_ ad: FullScreenPresentingAd) {
+    public func adWillPresentFullScreenContent(_ ad: FullScreenPresentingAd) {
         AdKit.storage.interstitialAdPresentedTime = Date().timeIntervalSince1970
         incrementInterstitialDisplayCount()
         didShowHandler?()
     }
     
-    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+    public func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Interstitial")
         didFailPresentHandler?(error)
     }
 
-    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+    public func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Interstitial")
         didCloseHandler?()
     }
 
-    func adDidRecordClick(_ ad: FullScreenPresentingAd) {
+    public func adDidRecordClick(_ ad: FullScreenPresentingAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Interstitial")
         didClickHandler?()
     }
     
     // MARK: - PreloadDelegate
     
-    @objc func adAvailable(forPreloadID preloadID: String, responseInfo: ResponseInfo) {
+    @objc public func adAvailable(forPreloadID preloadID: String, responseInfo: ResponseInfo) {
         failedRequests.reset()
         AdKit.analytics.trackFullAdDidLoad(
             in: self.ad.placement,
@@ -305,11 +305,11 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
         didLoadHandler?()
     }
 
-    @objc func adsExhausted(forPreloadID preloadID: String) {
+    @objc public func adsExhausted(forPreloadID preloadID: String) {
         // SDK автоматически загрузит новые
     }
 
-    @objc func adFailedToPreload(forPreloadID preloadID: String, error: Error) {
+    @objc public func adFailedToPreload(forPreloadID preloadID: String, error: Error) {
         failedRequests.increment()
         didFailPresentHandler?(error)
         AdKit.analytics.trackAdDidFailToLoad(
@@ -323,7 +323,7 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     
     // MARK: - InterstitialAdLoaderDelegate (Yandex)
     
-    func interstitialAdLoader(_ adLoader: InterstitialAdLoader, didLoad interstitialAd: YandexMobileAds.InterstitialAd) {
+    public func interstitialAdLoader(_ adLoader: InterstitialAdLoader, didLoad interstitialAd: YandexMobileAds.InterstitialAd) {
         failedRequests.reset()
         AdKit.analytics.trackFullAdDidLoad(
             in: self.ad.placement,
@@ -337,7 +337,7 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
         didLoadHandler?()
     }
     
-    func interstitialAdLoader(_ adLoader: InterstitialAdLoader, didFailToLoadWithError error: AdRequestError) {
+    public func interstitialAdLoader(_ adLoader: InterstitialAdLoader, didFailToLoadWithError error: AdRequestError) {
         failedRequests.increment()
         didFailPresentHandler?(error.error)
         AdKit.analytics.trackAdDidFailToLoad(in: ad.placement, type: "Interstitial", failedRequests: failedRequests.value, error: error.error.localizedDescription)
@@ -345,13 +345,13 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     
     // MARK: - InterstitialAdDelegate (Yandex)
     
-    func interstitialAdDidShow(_ interstitialAd: YandexMobileAds.InterstitialAd) {
+    public func interstitialAdDidShow(_ interstitialAd: YandexMobileAds.InterstitialAd) {
         AdKit.storage.interstitialAdPresentedTime = Date().timeIntervalSince1970
         didShowHandler?()
     }
 
     
-    func interstitialAd(_ interstitialAd: YandexMobileAds.InterstitialAd, didTrackImpressionWith impressionData: (any ImpressionData)?) {
+    public func interstitialAd(_ interstitialAd: YandexMobileAds.InterstitialAd, didTrackImpressionWith impressionData: (any ImpressionData)?) {
         
         
         incrementInterstitialDisplayCount()
@@ -376,23 +376,23 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
         }
     }
     
-    func interstitialAd(_ interstitialAd: YandexMobileAds.InterstitialAd, didFailToShowWithError error: any Error) {
+    public func interstitialAd(_ interstitialAd: YandexMobileAds.InterstitialAd, didFailToShowWithError error: any Error) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Interstitial")
         didFailPresentHandler?(error)
     }
     
-    func interstitialAdDidDismiss(_ interstitialAd: YandexMobileAds.InterstitialAd) {
+    public func interstitialAdDidDismiss(_ interstitialAd: YandexMobileAds.InterstitialAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Interstitial")
         didCloseHandler?()
     }
     
-    func interstitialAdDidClick(_ interstitialAd: YandexMobileAds.InterstitialAd) {
+    public func interstitialAdDidClick(_ interstitialAd: YandexMobileAds.InterstitialAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Interstitial")
         didClickHandler?()
     }
     // MARK: - MAInterstitialAdDelegate (AppLovin)
     
-    func didLoad(_ ad: MAAd) {
+    public func didLoad(_ ad: MAAd) {
         retryAttempt = 0
         retryTimer?.invalidate()
         retryTimer = nil
@@ -433,7 +433,7 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
     }
 
     /// Готов ли интер к показу. Для AppLovin учитываем CPM-аппрув; прочие сети — по их готовности.
-    func isReadyToPresent() -> Bool {
+    public func isReadyToPresent() -> Bool {
         if appLovinInterstitial != nil {
             return isCPMApproved && (appLovinInterstitial?.isReady ?? false)
         } else if yandexInterstitial != nil {
@@ -444,35 +444,35 @@ class AMInterstitialAd: NSObject, FullScreenContentDelegate, InterstitialAdLoade
         return false
     }
 
-    func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
+    public func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         failedRequests.increment()
         AdKit.analytics.trackAdDidFailToLoad(in: self.ad.placement, type: "Interstitial", failedRequests: failedRequests.value, error: error.message)
         didFailPresentHandler?(nil)
         scheduleRetry()
     }
     
-    func didDisplay(_ ad: MAAd) {
+    public func didDisplay(_ ad: MAAd) {
         AdKit.storage.interstitialAdPresentedTime = Date().timeIntervalSince1970
         let level = AdCPMBackoffManager.shared.cpmLevel(revenue: ad.revenue, adUnitID: ad.adUnitIdentifier)
         incrementInterstitialDisplayCount(cpmLevel: level)
         didShowHandler?()
     }
     
-    func didHide(_ ad: MAAd) {
+    public func didHide(_ ad: MAAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Interstitial")
         didCloseHandler?()
     }
     
-    func didClick(_ ad: MAAd) {
+    public func didClick(_ ad: MAAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Interstitial")
         didClickHandler?()
     }
     
-    func didPayRevenue(for ad: MAAd) {
+    public func didPayRevenue(for ad: MAAd) {
         AdKit.analytics.trackAdRevenue(in: self.ad.placement, type: "Interstitial", value: ad.revenue.decimalValue, currency: "USD", network: "AppLovin", adNetwork: ad.networkName, unitId: ad.adUnitIdentifier)
     }
     
-    func didFail(toDisplay ad: MAAd, withError error: MAError) {
+    public func didFail(toDisplay ad: MAAd, withError error: MAError) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Interstitial")
         didFailPresentHandler?(nil)
         scheduleRetry()

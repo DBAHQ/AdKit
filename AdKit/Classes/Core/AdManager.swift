@@ -8,13 +8,13 @@ import UserMessagingPlatform
 
 // MARK: - Ad Enums
 
-enum AdProvider: String, CaseIterable {
+public enum AdProvider: String, CaseIterable {
     case yandex = "Yandex"
     case appLovin = "AppLovin"
     case admob = "AdMob"
 }
 
-enum AdType {
+public enum AdType {
     case interstitial
     case rewarded
     case native
@@ -22,15 +22,15 @@ enum AdType {
     case banner
 }
 
-class AdManager {
+public class AdManager {
     
     // MARK: - Static Properties
     
-    static let shared = AdManager()
+    public static let shared = AdManager()
 
     // MARK: - Static Helpers
     
-    static var isRussia: Bool {
+    public static var isRussia: Bool {
         Locale.current.regionCode?.lowercased() == "ru"
     }
     
@@ -66,7 +66,7 @@ class AdManager {
 
     // MARK: - Mediation Logic
     
-    func getEligibleProviders(for adType: AdType) -> [AdProvider] {
+    public func getEligibleProviders(for adType: AdType) -> [AdProvider] {
         // Rule 1: Global Ad Permission
         guard AdKit.remoteConfig.isAdEnabled else {
             return []
@@ -134,7 +134,7 @@ class AdManager {
     
     // MARK: - Interstitial Methods
     
-    func load(_ ad: AdPlacement) {
+    public func load(_ ad: AdPlacement) {
         let key = ad.placement
 
         // Гейт готовности рекламы-конфига. На первом запуске Firebase RC (isAdEnabled) и app settings
@@ -188,7 +188,7 @@ class AdManager {
         }
     }
     
-    func presentInScreenTransition(_ ad: AdPlacement, in viewController: UIViewController) {
+    public func presentInScreenTransition(_ ad: AdPlacement, in viewController: UIViewController) {
         // Список экранов, где интер показывать нельзя, задаёт приложение.
         if AdKit.host.interstitialExcludedScreens.contains(where: { $0 == type(of: viewController) }) {
             return
@@ -204,23 +204,23 @@ class AdManager {
 
     // MARK: - AppOpen Methods
     
-    func getAppOpenLastTimePresented() -> Date? {
+    public func getAppOpenLastTimePresented() -> Date? {
         backgroundTime
     }
     
-    func getWainInBackGround() -> Bool {
+    public func getWainInBackGround() -> Bool {
         wasInBackground
     }
     
-    func toggleWasInBackground() {
+    public func toggleWasInBackground() {
         wasInBackground.toggle()
     }
     
-    func setAppOpenLastTimePresented(_ date: Date?) {
+    public func setAppOpenLastTimePresented(_ date: Date?) {
         backgroundTime = date
     }
     
-    func load(_ ad: AdPlacement, completion: (() -> Void)? = nil) {
+    public func loadAppOpen(_ ad: AdPlacement, completion: (() -> Void)? = nil) {
         guard !getEligibleProviders(for: .appOpen).isEmpty else {
             appOpenAd = nil
             appOpenLoadTime = nil
@@ -252,9 +252,9 @@ class AdManager {
         appOpenAd?.loadAd()
     }
     
-    func tryToPresentAppOpenAd(from viewController: UIViewController) {
+    public func tryToPresentAppOpenAd(from viewController: UIViewController) {
         if !isShowingAppOpenAd {
-            load(AdKit.host.appOpenPlacement) { [weak self] in
+            loadAppOpen(AdKit.host.appOpenPlacement) { [weak self] in
                 guard let self = self else { return }
                 
                 if self.appOpenAd != nil && self.appOpenLoadTime != nil {
@@ -277,7 +277,7 @@ class AdManager {
     /// Если реклама не загрузилась за `timeout` (или ошибка / нет рекламы / закрытие) — вызывает `onFinished`,
     /// по которому SceneDelegate снимает заставку и открывает дашборд.
     /// Горячую ветку (`tryToPresentAppOpenAd`) не трогает.
-    func loadAndPresentAppOpenForColdStart(from viewController: UIViewController,
+    public func loadAndPresentAppOpenForColdStart(from viewController: UIViewController,
                                            timeout: TimeInterval,
                                            onFinished: @escaping () -> Void) {
         coldStartFinished = false
@@ -350,7 +350,7 @@ class AdManager {
         DispatchQueue.main.async { handler?() }
     }
 
-    func isAppOpenAdAvailable() -> Bool {
+    public func isAppOpenAdAvailable() -> Bool {
         guard let loadTime = appOpenLoadTime else {
             return false
         }
@@ -359,7 +359,7 @@ class AdManager {
     
     // MARK: - Consent Methods
     
-    func presentConsent(in viewController: UIViewController) {
+    public func presentConsent(in viewController: UIViewController) {
         ConsentInformation.shared.requestConsentInfoUpdate(with: nil) { requestConsentError in
             if let consentError = requestConsentError {
                 AdKit.host.presentError(consentError.localizedDescription, in: viewController)

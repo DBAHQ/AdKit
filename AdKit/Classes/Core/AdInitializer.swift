@@ -15,11 +15,11 @@ import UserMessagingPlatform
 import FBAudienceNetwork
 
 
-class AdInitializer: NSObject {
+public class AdInitializer: NSObject {
     
     // MARK: - Singleton Instance
     
-    static let shared = AdInitializer()
+    public static let shared = AdInitializer()
     
     // MARK: - Properties
     
@@ -33,7 +33,7 @@ class AdInitializer: NSObject {
     
     // MARK: - Public Methods
     
-    func initializeAllSDKs() {
+    public func initializeAllSDKs() {
         FBAdSettings.setDataProcessingOptions([])
         updateMetaTrackingStatus()
 
@@ -51,7 +51,7 @@ class AdInitializer: NSObject {
         ALPrivacySettings.setHasUserConsent(isAuthorized)
     }
     
-    func requestConsentAndATT() {
+    public func requestConsentAndATT() {
         // ATT is requested FIRST and independently of Google's UMP consent flow.
         // Previously ATT was chained AFTER the UMP network call, so a hung/slow
         // `requestConsentInfoUpdate` callback could prevent the Apple tracking
@@ -91,7 +91,7 @@ class AdInitializer: NSObject {
         }
     }
     
-    func requestConsent() {
+    public func requestConsent() {
         guard !hasRequestedConsent else {
             return
         }
@@ -126,7 +126,7 @@ class AdInitializer: NSObject {
         }
     }
     
-    func requestATT(completion: (() -> Void)? = nil) {
+    public func requestATT(completion: (() -> Void)? = nil) {
         // DMA-согласия должны уехать до endFirstSessionDelay(), иначе они не попадут
         // в первую сессию и Google не засчитает install.
         shareDMAConsent()
@@ -193,7 +193,7 @@ class AdInitializer: NSObject {
     /// в логах Adjust это warning'и eea_missing_or_invalid / ad_user_data_missing /
     /// ad_personalization_missing_or_invalid.
     /// Значения берём из TCF-строки, которую пишет в UserDefaults форма Google UMP.
-    func shareDMAConsent() {
+    public func shareDMAConsent() {
         // Пока UMP не отработал (.unknown), согласий мы не знаем. Отправить в такой момент —
         // значит соврать Google про регион, поэтому молчим и ждём вызова после формы.
         guard ConsentInformation.shared.consentStatus != .unknown else { return }
@@ -238,7 +238,7 @@ class AdInitializer: NSObject {
         return bits[index] == "1"
     }
 
-    func presentAdInspector(in viewController: UIViewController) {
+    public func presentAdInspector(in viewController: UIViewController) {
         guard let providerName = AdKit.appSettings.mediationProvider,
               let provider = AdProvider(rawValue: providerName) else {
             ALSdk.shared().showMediationDebugger()

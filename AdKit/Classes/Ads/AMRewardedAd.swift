@@ -8,7 +8,7 @@ import GoogleMobileAds
 import MintegralAdapter
 import AppLovinSDK
 
-class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegate, RewardedAdDelegate, MARewardedAdDelegate, MAAdRevenueDelegate {
+public class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegate, RewardedAdDelegate, MARewardedAdDelegate, MAAdRevenueDelegate {
 
     // MARK: - Properties
     
@@ -17,7 +17,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     private var googleRewardedAd: GoogleMobileAds.RewardedAd?
     private var appLovinRewardedAd: MARewardedAd?
     private var rewardedPresentAttempts = 0
-    var rewardHasBeenEarned = false
+    public var rewardHasBeenEarned = false
     private lazy var yandexRewardedAdLoader: RewardedAdLoader = {
         let loader = RewardedAdLoader()
         loader.delegate = self
@@ -46,7 +46,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     
     // MARK: - Inits
     
-    init(ad: AdPlacement) {
+    public init(ad: AdPlacement) {
         self.ad = ad
         super.init()
     }
@@ -149,7 +149,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     
     // MARK: - Ad Presentation
     
-    func present(in viewController: UIViewController) {
+    public func present(in viewController: UIViewController) {
         // Rewarded ad fallback (remote-config controlled). When enabled, we do
         // NOT attempt to show a real ad. Instead the caller's loader stays on
         // screen for 3 seconds and then the reward is granted, mirroring the
@@ -237,44 +237,44 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     
     // MARK: - Setters
     
-    func setDidShowHandler(_ handler: (() -> ())?) -> AMRewardedAd {
+    public func setDidShowHandler(_ handler: (() -> ())?) -> AMRewardedAd {
         self.didShowHandler = handler
         return self
     }
 
-    func setDidLoadHandler(_ handler: (() -> ())?) -> AMRewardedAd {
+    public func setDidLoadHandler(_ handler: (() -> ())?) -> AMRewardedAd {
         self.didLoadHandler = handler
         return self
     }
 
-    func setDidCloseHandler(_ handler: ((Bool) -> ())?) -> AMRewardedAd {
+    public func setDidCloseHandler(_ handler: ((Bool) -> ())?) -> AMRewardedAd {
         self.didCloseHandler = handler
         return self
     }
 
-    func setDidEarnRewardHandler(_ handler: (() -> ())?) -> AMRewardedAd {
+    public func setDidEarnRewardHandler(_ handler: (() -> ())?) -> AMRewardedAd {
         self.didEarnRewardHandler = handler
         return self
     }
 
-    func setDidFailPresentHandler(_ handler: ((Error?) -> ())?) -> AMRewardedAd {
+    public func setDidFailPresentHandler(_ handler: ((Error?) -> ())?) -> AMRewardedAd {
         self.didFailPresentHandler = handler
         return self
     }
 
-    func setDidClickHandler(_ handler: (() -> ())?) -> AMRewardedAd {
+    public func setDidClickHandler(_ handler: (() -> ())?) -> AMRewardedAd {
         self.didClickHandler = handler
         return self
     }
 
-    func setNoAdsAvailableHandler(_ handler: (() -> ())?) -> AMRewardedAd {
+    public func setNoAdsAvailableHandler(_ handler: (() -> ())?) -> AMRewardedAd {
         self.noAdsAvailableHandler = handler
         return self
     }
     
     // MARK: - GADRewardedAdDelegate
     
-    func adWillPresentFullScreenContent(_ ad: FullScreenPresentingAd) {
+    public func adWillPresentFullScreenContent(_ ad: FullScreenPresentingAd) {
         AdKit.storage.rewardedAdPresentedTime = Date().timeIntervalSince1970
         // После показа rewarded сбрасываем счётчик навигаций и interstitial-cooldown,
         // чтобы interstitial не выскочил сразу после rewarded на следующем экране.
@@ -285,31 +285,31 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         didShowHandler?()
     }
     
-    func adDidRecordImpression(_ ad: FullScreenPresentingAd) {
+    public func adDidRecordImpression(_ ad: FullScreenPresentingAd) {
         incrementRewardedDisplayCount()
 
     }
 
-    func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
+    public func ad(_ ad: FullScreenPresentingAd, didFailToPresentFullScreenContentWithError error: Error) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Rewarded")
         didFailPresentHandler?(error)
     }
 
-    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+    public func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Rewarded")
         // Сбрасываем флаг анимации для текущего view controller
         AdKit.host.setAdLoadingIndicator(visible: false)
         didCloseHandler?(rewardHasBeenEarned)
     }
     
-    func adDidRecordClick(_ ad: FullScreenPresentingAd) {
+    public func adDidRecordClick(_ ad: FullScreenPresentingAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Rewarded")
         didClickHandler?()
     }
     
     // MARK: - RewardedAdLoaderDelegate (Yandex)
     
-    func rewardedAdLoader(_ adLoader: RewardedAdLoader, didLoad rewardedAd: YandexMobileAds.RewardedAd) {
+    public func rewardedAdLoader(_ adLoader: RewardedAdLoader, didLoad rewardedAd: YandexMobileAds.RewardedAd) {
         failedRequests.reset()
         AdKit.analytics.trackFullAdDidLoad(
             in: self.ad.placement,
@@ -323,7 +323,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         self.didLoadHandler?()
     }
     
-    func rewardedAdLoader(_ adLoader: YandexMobileAds.RewardedAdLoader, didFailToLoadWithError error: YandexMobileAds.AdRequestError) {
+    public func rewardedAdLoader(_ adLoader: YandexMobileAds.RewardedAdLoader, didFailToLoadWithError error: YandexMobileAds.AdRequestError) {
         failedRequests.increment()
         didFailPresentHandler?(error.error)
         AdKit.analytics.trackAdDidFailToLoad(in: ad.placement, type: "Rewarded", failedRequests: failedRequests.value, error: error.error.localizedDescription)
@@ -331,7 +331,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     
     // MARK: - RewardedAdDelegate (Yandex)
     
-    func rewardedAdDidShow(_ rewardedAd: YandexMobileAds.RewardedAd) {
+    public func rewardedAdDidShow(_ rewardedAd: YandexMobileAds.RewardedAd) {
         AdKit.storage.rewardedAdPresentedTime = Date().timeIntervalSince1970
         // После показа rewarded сбрасываем счётчик навигаций и interstitial-cooldown,
         // чтобы interstitial не выскочил сразу после rewarded на следующем экране.
@@ -342,7 +342,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         self.didShowHandler?()
     }
     
-    func rewardedAd(_ rewardedAd: YandexMobileAds.RewardedAd, didTrackImpressionWith impressionData: (any ImpressionData)?) {
+    public func rewardedAd(_ rewardedAd: YandexMobileAds.RewardedAd, didTrackImpressionWith impressionData: (any ImpressionData)?) {
         incrementRewardedDisplayCount()
         if let data = impressionData?.rawData.data(using: .utf8) {
             do {
@@ -357,22 +357,22 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         }
     }
 
-    func rewardedAdDidFail(toLoad rewardedAd: YandexMobileAds.RewardedAd, error: Error) {
+    public func rewardedAdDidFail(toLoad rewardedAd: YandexMobileAds.RewardedAd, error: Error) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Rewarded")
         self.didFailPresentHandler?(error)
     }
 
-    func rewardedAd(_ rewardedAd: YandexMobileAds.RewardedAd, didReward reward: Reward) {
+    public func rewardedAd(_ rewardedAd: YandexMobileAds.RewardedAd, didReward reward: Reward) {
         rewardHasBeenEarned = true
         didEarnRewardHandler?()
     }
     
-    func rewardedAdDidClick(_ rewardedAd: YandexMobileAds.RewardedAd) {
+    public func rewardedAdDidClick(_ rewardedAd: YandexMobileAds.RewardedAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Rewarded")
         didClickHandler?()
     }
     
-    func rewardedAdDidDismiss(_ rewardedAd: YandexMobileAds.RewardedAd) {
+    public func rewardedAdDidDismiss(_ rewardedAd: YandexMobileAds.RewardedAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Rewarded")
         // Сбрасываем флаг анимации для текущего view controller
         AdKit.host.setAdLoadingIndicator(visible: false)
@@ -381,7 +381,7 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
     
     // MARK: - MARewardedAdDelegate (AppLovin)
     
-    func didLoad(_ ad: MAAd) {
+    public func didLoad(_ ad: MAAd) {
         retryAttempt = 0
         retryTimer?.invalidate()
         retryTimer = nil
@@ -400,14 +400,14 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         didLoadHandler?()
     }
 
-    func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
+    public func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
         failedRequests.increment()
         didFailPresentHandler?(nil)
         AdKit.analytics.trackAdDidFailToLoad(in: self.ad.placement, type: "Rewarded", failedRequests: failedRequests.value, error: error.message)
         scheduleRetry()
     }
     
-    func didDisplay(_ ad: MAAd) {
+    public func didDisplay(_ ad: MAAd) {
         AdKit.storage.rewardedAdPresentedTime = Date().timeIntervalSince1970
         // После показа rewarded сбрасываем счётчик навигаций и interstitial-cooldown,
         // чтобы interstitial не выскочил сразу после rewarded на следующем экране.
@@ -419,29 +419,29 @@ class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoaderDelegat
         didShowHandler?()
     }
     
-    func didHide(_ ad: MAAd) {
+    public func didHide(_ ad: MAAd) {
         AdKit.analytics.trackAdDidHide(in: self.ad.placement, type: "Rewarded")
         // Сбрасываем флаг анимации для текущего view controller
         AdKit.host.setAdLoadingIndicator(visible: false)
         didCloseHandler?(rewardHasBeenEarned)
     }
     
-    func didClick(_ ad: MAAd) {
+    public func didClick(_ ad: MAAd) {
         AdKit.analytics.trackAdDidClick(in: self.ad.placement, type: "Rewarded")
         didClickHandler?()
     }
     
-    func didPayRevenue(for ad: MAAd) {
+    public func didPayRevenue(for ad: MAAd) {
         AdKit.analytics.trackAdRevenue(in: self.ad.placement, type: "Rewarded", value: ad.revenue.decimalValue, currency: "USD", network: "AppLovin", adNetwork: ad.networkName, unitId: ad.adUnitIdentifier)
     }
     
-    func didFail(toDisplay ad: MAAd, withError error: MAError) {
+    public func didFail(toDisplay ad: MAAd, withError error: MAError) {
         AdKit.analytics.trackAdDidFailToDisplay(in: self.ad.placement, type: "Rewarded")
         didFailPresentHandler?(nil)
         scheduleRetry()
     }
     
-    func didRewardUser(for ad: MAAd, with reward: MAReward) {
+    public func didRewardUser(for ad: MAAd, with reward: MAReward) {
         rewardHasBeenEarned = true
         didEarnRewardHandler?()
     }
