@@ -63,6 +63,12 @@ public class AdManager {
     private var coldStartOnFinished: (() -> Void)?
     /// Таймаут именно на ЗАГРУЗКУ рекламы. Отменяется, как только реклама загрузилась.
     private var coldStartTimeoutWorkItem: DispatchWorkItem?
+    /// Момент, до которого держим заставку. Общий на ожидание конфига и загрузку.
+    private var coldStartDeadline: Date?
+    /// Наблюдатель сигнала «конфиг приехал» на время холодного старта.
+    private var coldStartConfigObserver: NSObjectProtocol?
+    /// Конфиг уже ждали один раз — повторно не ждём, чтобы не зациклиться.
+    private var didWaitForColdStartConfig = false
 
     // MARK: - Mediation Logic
     
@@ -288,12 +294,28 @@ public class AdManager {
                                            onFinished: @escaping () -> Void) {
         coldStartFinished = false
         coldStartOnFinished = onFinished
+        didWaitForColdStartConfig = false
+        // Общий бюджет заставки: ожидание конфига и загрузка рекламы делят его
+        // между собой, поэтому пользователь не ждёт два раза по timeout.
+        coldStartDeadline = Date().addingTimeInterval(timeout)
+        startColdStart(from: viewController)
+    }
 
-        // Реклама отключена / нет провайдера — сразу открываем дашборд.
+    private func startColdStart(from viewController: UIViewController) {
+        let timeout = max(0, coldStartDeadline?.timeIntervalSinceNow ?? 0)
+
         guard !getEligibleProviders(for: .appOpen).isEmpty else {
-            appOpenAd = nil
-            appOpenLoadTime = nil
-            finishColdStart()
+            if AdKit.remoteConfig.isConfigAvailable || didWaitForColdStartConfig || timeout <= 0 {
+                // Конфиг на руках и говорит «рекламы нет» — открываем дашборд.
+                appOpenAd = nil
+                appOpenLoadTime = nil
+                finishColdStart()
+            } else {
+                // Конфига ещё нет (первая установка) — не решаем преждевременно,
+                // ждём его прихода в пределах оставшегося бюджета.
+                AdKitLog.log("cold start: конфига ещё нет, жду до \(String(format: "%.1f", timeout)) с")
+                waitForConfigThenRetryColdStart(from: viewController, timeout: timeout)
+            }
             return
         }
 
@@ -345,9 +367,47 @@ public class AdManager {
     }
 
     /// Завершает cold-start ровно один раз: сбрасывает флаги и вызывает колбэк снятия заставки.
+    private func waitForConfigThenRetryColdStart(from viewController: UIViewController, timeout: TimeInterval) {
+        didWaitForColdStartConfig = true
+
+        let deadlineItem = DispatchWorkItem { [weak self] in
+            guard let self, !self.coldStartFinished else { return }
+            AdKitLog.log("cold start: конфиг не приехал за отведённое время, открываю дашборд")
+            self.finishColdStart()
+        }
+        coldStartTimeoutWorkItem = deadlineItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: deadlineItem)
+
+        coldStartConfigObserver = NotificationCenter.default.addObserver(
+            forName: AdKit.configDidBecomeReadyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self, weak viewController] _ in
+            guard let self, !self.coldStartFinished else { return }
+            self.removeColdStartConfigObserver()
+            self.coldStartTimeoutWorkItem?.cancel()
+            self.coldStartTimeoutWorkItem = nil
+            guard let viewController else {
+                self.finishColdStart()
+                return
+            }
+            AdKitLog.log("cold start: конфиг приехал, повторяю попытку")
+            self.startColdStart(from: viewController)
+        }
+    }
+
+    private func removeColdStartConfigObserver() {
+        if let observer = coldStartConfigObserver {
+            NotificationCenter.default.removeObserver(observer)
+            coldStartConfigObserver = nil
+        }
+    }
+
     private func finishColdStart() {
         guard !coldStartFinished else { return }
         coldStartFinished = true
+        removeColdStartConfigObserver()
+        coldStartDeadline = nil
         coldStartTimeoutWorkItem?.cancel()
         coldStartTimeoutWorkItem = nil
         isShowingAppOpenAd = false

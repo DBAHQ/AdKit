@@ -43,6 +43,7 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     /// Сбрасывается при показе нового объявления и в cleanupAd, чтобы повторный вход
     /// вьюхи в окно (didMoveToWindow на таб-экранах) не плодил фантомный adDidDisplay.
     private var didReportDisplay = false
+    private var configReadyObserver: NSObjectProtocol?
     private var bannerView: UIView?
     private var isAdLoadTriggered = false
     private var loadRetryCount = 0
@@ -186,11 +187,41 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
         super.didMoveToSuperview()
         
         if superview != nil {
+            observeConfigReadyIfNeeded()
             applyContainerViews()
             setupInterface()
         } else {
+            stopObservingConfigReady()
             cleanupAd()
         }
+    }
+
+    deinit {
+        stopObservingConfigReady()
+    }
+
+    // MARK: - Готовность конфига
+
+    /// На первом запуске Remote Config приезжает уже после того, как вью
+    /// попросила рекламу и получила пустой список провайдеров. Ждём сигнала
+    /// и повторяем попытку — иначе место остаётся пустым до конца сессии.
+    private func observeConfigReadyIfNeeded() {
+        guard configReadyObserver == nil else { return }
+        configReadyObserver = NotificationCenter.default.addObserver(
+            forName: AdKit.configDidBecomeReadyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, !self.isAdLoaded, !self.isLoadingAd else { return }
+            AdKitLog.log("native '\(self.adUnit?.placement ?? "-")': конфиг приехал, повторяю загрузку")
+            self.loadAd()
+        }
+    }
+
+    private func stopObservingConfigReady() {
+        guard let observer = configReadyObserver else { return }
+        NotificationCenter.default.removeObserver(observer)
+        configReadyObserver = nil
     }
     
     override func willMove(toSuperview newSuperview: UIView?) {

@@ -38,6 +38,10 @@ public enum AdKit {
     /// Версия пакета. Совпадает с версией в podspec.
     public static let version = "0.1.0"
 
+    /// Пакет шлёт это уведомление, когда приложение сообщило о приходе конфига.
+    /// Рекламные вью на него переподписываются и повторяют неудавшуюся загрузку.
+    public static let configDidBecomeReadyNotification = Notification.Name("AdKit.configDidBecomeReady")
+
     private static var storedConfiguration: AdConfiguration?
 
     /// Настроен ли пакет. Полезно, чтобы не дёргать рекламу слишком рано.
@@ -72,6 +76,15 @@ public enum AdKit {
             )
         }
         return configuration
+    }
+
+    /// Приложение зовёт это, когда приехал Remote Config или настройки бекенда.
+    /// Можно звать сколько угодно раз — лишние вызовы просто перезапустят
+    /// загрузки, которые и так не удались.
+    public static func configDidBecomeReady() {
+        guard isConfigured else { return }
+        AdKitLog.log("конфиг приехал — повторяю отложенные загрузки")
+        NotificationCenter.default.post(name: configDidBecomeReadyNotification, object: nil)
     }
 
     // Короткие псевдонимы, чтобы перенесённый код читался как прежде.

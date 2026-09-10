@@ -42,7 +42,10 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     
     // MARK: - Static Properties
     
-    private static let bannersCountdownToRefresh = AdKit.remoteConfig.bannerAdRefreshRate
+    /// Вычисляемое, а не `static let`: раньше значение фиксировалось при первом
+    /// обращении, а на первом запуске это происходило до прихода Remote Config —
+    /// и нулевой TTL держался до конца сессии.
+    private static var bannersCountdownToRefresh: Double { AdKit.remoteConfig.bannerAdRefreshRate }
     private static var banners: [String : AMBannerAd] = [:]
     private static var bannersLastLoadTime: [String : Date] = [:]
     

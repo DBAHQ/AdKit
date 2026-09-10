@@ -29,7 +29,9 @@ class AMNativeAd {
     
     private static var ads: [String : AMNativeAd] = [:]
     private static var adsLastLoadTime: [String : Date] = [:]
-    private static let adsCountdownToRefresh = AdKit.remoteConfig.nativeAdRefreshRate
+    /// Вычисляемое по той же причине, что и у баннеров: `static let` замораживал
+    /// нулевой TTL, снятый до загрузки Remote Config.
+    private static var adsCountdownToRefresh: Double { AdKit.remoteConfig.nativeAdRefreshRate }
     
     // MARK: - Private Properties
     
