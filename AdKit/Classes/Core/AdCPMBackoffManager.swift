@@ -99,6 +99,22 @@ public final class AdCPMBackoffManager {
                           thresholdPercent percent: Double,
                           intervals: [TimeInterval],
                           label: String) -> Decision {
+        let decision = evaluateCore(revenue: revenue, adUnitID: adUnitID, thresholdPercent: percent, intervals: intervals, label: label)
+        let baseline = states[adUnitID]?.baselineRevenue
+        switch decision {
+        case .show:
+            AdKitLog.log("бэкофф \(label): показываем — revenue \(revenue), baseline \(baseline.map { "\($0)" } ?? "не задан"), порог \(percent)%")
+        case let .backoff(delay, cpmLevel):
+            AdKitLog.log("бэкофф \(label): ПРОПУСК — revenue \(revenue) ниже порога, cpmLevel \(String(format: "%.1f", cpmLevel))%, перезапрос через \(delay) с")
+        }
+        return decision
+    }
+
+    private func evaluateCore(revenue: Double,
+                              adUnitID: String,
+                              thresholdPercent percent: Double,
+                              intervals: [TimeInterval],
+                              label: String) -> Decision {
         // Kill-switch: CPM-фильтрация отключена в Remote Config → показываем всё без проверки.
         guard AdKit.remoteConfig.isCpmBackoffEnabled else {
             return .show

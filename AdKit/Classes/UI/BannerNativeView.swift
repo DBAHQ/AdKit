@@ -309,9 +309,10 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
 
         let refreshInterval = AdKit.remoteConfig.nativeBannerRefreshTime
         guard refreshInterval > 0 else {
-            // Автообновление отключено
+            AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': выключен, nativeBannerRefreshTime = 0")
             return
         }
+        AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': таймер взведён на \(refreshInterval) с")
 
         refreshTimer = Timer.scheduledTimer(withTimeInterval: refreshInterval, repeats: false) { [weak self] _ in
             self?.refreshAd()
@@ -322,7 +323,9 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     /// текущее с экрана: замена произойдёт в didLoadNativeAd только при CPM ≥ порога, иначе бэкофф и
     /// на экране остаётся прежнее. Для AdMob/Yandex — прежнее поведение (cleanup + загрузка).
     private func refreshAd() {
+        AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': сработал таймер")
         guard isHostScreenVisible() else {
+            AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': экран не виден, перевзвожу таймер")
             // Экран не виден — запрос НЕ делаем, но перевзводим таймер,
             // чтобы рефреш сам возобновился, когда экран снова станет видимым.
             startAutoRefreshTimer()
@@ -389,6 +392,7 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     }
 
     private func scheduleVisibilityRetry() {
+        AdKitLog.log("native '\(adUnit?.placement ?? "-")': экран не виден, повтор через 2 с")
         stopAutoRefreshTimer()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             self?.loadAd()

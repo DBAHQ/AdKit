@@ -13,8 +13,10 @@ class AMNativeAd {
     static func get(with adUnit: NativeAdPlacement) -> AMNativeAd {
         let key = adUnit.placement
         if let ad = ads[key], let lastLoadTime = adsLastLoadTime[key], Date().timeIntervalSince(lastLoadTime) < adsCountdownToRefresh {
+            AdKitLog.log("кэш native '\(key)': отдаю из кэша, TTL \(adsCountdownToRefresh) с ещё не истёк")
             return ad
         } else {
+            AdKitLog.log("кэш native '\(key)': создаю заново (TTL \(adsCountdownToRefresh) с)")
             ads[key]?.remove()
             let ad = AMNativeAd(adUnit: adUnit)
             ads[key] = ad

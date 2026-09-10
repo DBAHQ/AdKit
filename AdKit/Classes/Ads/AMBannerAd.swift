@@ -15,15 +15,18 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         let key = ad.placement
         if let banner = banners[key] {
             if let time = bannersLastLoadTime[key], Date().timeIntervalSince1970 - time.timeIntervalSince1970 > bannersCountdownToRefresh {
+                AdKitLog.log("кэш banner '\(key)': истёк TTL \(bannersCountdownToRefresh) с, пересоздаю")
                 banner.stopAd()
                 let banner = AMBannerAd(ad: ad, size: size)
                 bannersLastLoadTime[key] = Date()
                 banners[key] = banner
                 return banner
             } else {
+                AdKitLog.log("кэш banner '\(key)': отдаю из кэша, TTL \(bannersCountdownToRefresh) с ещё не истёк")
                 return banner
             }
         } else {
+            AdKitLog.log("кэш banner '\(key)': в кэше пусто, создаю (TTL \(bannersCountdownToRefresh) с\(bannersCountdownToRefresh == 0 ? " — обновление по TTL выключено" : ""))")
             let banner = AMBannerAd(ad: ad, size: size)
             bannersLastLoadTime[key] = Date()
             banners[key] = banner

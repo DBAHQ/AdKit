@@ -46,7 +46,21 @@ public enum AdKit {
     /// Вызывается один раз, в `application(_:didFinishLaunchingWithOptions:)`,
     /// до любого обращения к рекламе.
     public static func configure(_ configuration: AdConfiguration) {
+        #if DEBUG
+        // В отладке подменяем аналитику и хранилище на логирующие обёртки:
+        // так в консоль попадает каждое событие и каждая запись счётчика.
+        storedConfiguration = AdConfiguration(
+            remoteConfig: configuration.remoteConfig,
+            appSettings: configuration.appSettings,
+            analytics: LoggingAnalyticsSink(wrapping: configuration.analytics),
+            storage: LoggingAdStorage(wrapping: configuration.storage),
+            host: configuration.host,
+            theme: configuration.theme
+        )
+        #else
         storedConfiguration = configuration
+        #endif
+        AdKitLog.log("настроен, версия \(version)")
     }
 
     /// Доступ к настройкам изнутри пакета.
