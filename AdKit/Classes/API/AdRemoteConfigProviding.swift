@@ -25,6 +25,11 @@ public protocol AdRemoteConfigProviding: AnyObject {
     /// Отдельный выключатель App Open.
     var isAppOpenAdEnabled: Bool { get }
 
+    /// true, если текущая версия приложения перечислена в RC-ключе отключения
+    /// интера после онбординга и App Open — например версия, уехавшая на ревью
+    /// в App Store. Пустой список → false → поведение не меняется.
+    var isInterstitialAfterOnboardingAndAppOpenDisabledForCurrentVersion: Bool { get }
+
     /// Показывать ли баннеры.
     var isBannerAdsPresenting: Bool { get }
 

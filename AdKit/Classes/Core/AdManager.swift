@@ -77,14 +77,6 @@ public class AdManager {
     // MARK: - Mediation Logic
     
     public func getEligibleProviders(for adType: AdType) -> [AdProvider] {
-        #if DEBUG
-        // ⚠️ Тестовый режим: см. AdKit.debugForcedProvider. Правила ниже пропускаются.
-        if let forced = AdKit.debugForcedProvider {
-            AdKitLog.log("⚠️ providers(\(adType)) = [\(forced.rawValue)] — ФОРСИРОВАНО в пакете, правила медиации пропущены")
-            return [forced]
-        }
-        #endif
-
         // Rule 1: Global Ad Permission
         guard AdKit.remoteConfig.isAdEnabled else {
             AdKitLog.log("providers(\(adType)) = [] — isAdEnabled = false")
@@ -92,9 +84,18 @@ public class AdManager {
         }
         
         // Rule 2: Special Flag for App Open Ads
-        if adType == .appOpen, !AdKit.remoteConfig.isAppOpenAdEnabled {
-            AdKitLog.log("providers(appOpen) = [] — isAppOpenAdEnabled = false")
-            return []
+        if adType == .appOpen {
+            if !AdKit.remoteConfig.isAppOpenAdEnabled {
+                AdKitLog.log("providers(appOpen) = [] — isAppOpenAdEnabled = false")
+                return []
+            }
+
+            // Version kill-switch: App Open отключён для перечисленных в RC версий
+            // (например для версии на ревью в App Store). Пусто → без изменений.
+            if AdKit.remoteConfig.isInterstitialAfterOnboardingAndAppOpenDisabledForCurrentVersion {
+                AdKitLog.log("providers(appOpen) = [] — версия приложения в списке отключённых")
+                return []
+            }
         }
         
         // Rule 3: Get provider from AppSettingsDTO (backend already considers region and app version)

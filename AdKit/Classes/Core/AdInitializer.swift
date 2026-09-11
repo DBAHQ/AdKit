@@ -34,6 +34,7 @@ public class AdInitializer: NSObject {
     // MARK: - Public Methods
     
     public func initializeAllSDKs() {
+        applySdkLoggingSettings()
         FBAdSettings.setDataProcessingOptions([])
         updateMetaTrackingStatus()
 
@@ -42,6 +43,19 @@ public class AdInitializer: NSObject {
         initializeAppLovinSDK()
         initializeAdPreloading()
         preloadAppOpenAd()
+    }
+
+    /// Подробные логи самих рекламных SDK. Включаются тем же флагом
+    /// `AdConfiguration(isLoggingEnabled:)`, что и логи пакета.
+    ///
+    /// Ставить надо до инициализации SDK — позже они настройку не перечитывают.
+    /// У Google Mobile Ads рантайм-переключателя нет: её verbose включается
+    /// только аргументом запуска -GADDebugMode.
+    private func applySdkLoggingSettings() {
+        let isEnabled = AdKitLog.isEnabled
+
+        ALSdk.shared().settings.isVerboseLoggingEnabled = isEnabled
+        FBAdSettings.setLogLevel(isEnabled ? FBAdLogLevel.verbose : FBAdLogLevel.none)
     }
     
     private func updateMetaTrackingStatus() {

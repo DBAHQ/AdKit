@@ -14,6 +14,9 @@ public struct AdConfiguration {
     public let storage: AdStorage
     public let host: AdHostEnvironment
     public let theme: AdTheme
+    /// Подробные логи рекламы: решения медиации, события, счётчики, а также
+    /// verbose рекламных SDK. Выключено по умолчанию — включается только для тестов.
+    public let isLoggingEnabled: Bool
 
     public init(
         remoteConfig: AdRemoteConfigProviding,
@@ -21,7 +24,8 @@ public struct AdConfiguration {
         analytics: AdAnalyticsSink,
         storage: AdStorage,
         host: AdHostEnvironment,
-        theme: AdTheme
+        theme: AdTheme,
+        isLoggingEnabled: Bool = false
     ) {
         self.remoteConfig = remoteConfig
         self.appSettings = appSettings
@@ -29,6 +33,7 @@ public struct AdConfiguration {
         self.storage = storage
         self.host = host
         self.theme = theme
+        self.isLoggingEnabled = isLoggingEnabled
     }
 }
 
@@ -42,20 +47,6 @@ public enum AdKit {
     /// Рекламные вью на него переподписываются и повторяют неудавшуюся загрузку.
     public static let configDidBecomeReadyNotification = Notification.Name("AdKit.configDidBecomeReady")
 
-    /// ⚠️ ВРЕМЕННЫЙ ТЕСТОВЫЙ РЕЖИМ.
-    ///
-    /// Форсирует провайдера прямо в медиации пакета, минуя ВСЕ правила:
-    /// isAdEnabled, отдельный флаг AppOpen, mediationProvider с бекенда и
-    /// список отключённых провайдеров. Нужен, чтобы прогнать CPM-бэкофф на
-    /// AppLovin, у которого есть реальная выручка с показа.
-    ///
-    /// Существует только в отладочных сборках: в Release этого свойства нет,
-    /// и обращение к нему не скомпилируется. Поэтому в стор он уехать не может.
-    ///
-    /// Поставить nil, когда проверка закончится.
-    #if DEBUG
-    public static var debugForcedProvider: AdProvider? = .appLovin
-    #endif
 
     /// Момент настройки пакета — практически момент запуска приложения.
     /// Нужен, чтобы измерить, какая доля времени до первой рекламы уходит
@@ -76,15 +67,19 @@ public enum AdKit {
     /// Вызывается один раз, в `application(_:didFinishLaunchingWithOptions:)`,
     /// до любого обращения к рекламе.
     public static func configure(_ configuration: AdConfiguration) {
-        // Аналитика и хранилище всегда идут через логирующие обёртки: в консоль
-        // попадает каждое событие и каждая запись счётчика, в том числе на проде.
+        AdKitLog.isEnabled = configuration.isLoggingEnabled
+
+        // Логирующие обёртки над аналитикой и хранилищем подставляются только
+        // когда логи включены: иначе каждое событие и каждая запись счётчика
+        // проходили бы через лишний слой впустую.
         storedConfiguration = AdConfiguration(
             remoteConfig: configuration.remoteConfig,
             appSettings: configuration.appSettings,
-            analytics: LoggingAnalyticsSink(wrapping: configuration.analytics),
-            storage: LoggingAdStorage(wrapping: configuration.storage),
+            analytics: configuration.isLoggingEnabled ? LoggingAnalyticsSink(wrapping: configuration.analytics) : configuration.analytics,
+            storage: configuration.isLoggingEnabled ? LoggingAdStorage(wrapping: configuration.storage) : configuration.storage,
             host: configuration.host,
-            theme: configuration.theme
+            theme: configuration.theme,
+            isLoggingEnabled: configuration.isLoggingEnabled
         )
         configuredAt = Date()
         AdKitLog.log("настроен, версия \(version)")
