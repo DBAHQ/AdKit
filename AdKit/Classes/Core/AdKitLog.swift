@@ -20,11 +20,14 @@ public enum AdKitLog {
 
     private static let logger = Logger(subsystem: "com.dbahq.adkit", category: "ads")
 
+    /// Префикс на КАЖДОЙ строке и в обоих каналах. В os_log он нужен не меньше,
+    /// чем в print: в общем потоке устройства без него рекламные строки
+    /// не отфильтровать, а подсистема видна не во всех просмотрщиках.
+    private static let prefix = "[AdKit]"
+
     static func log(_ message: @autoclosure () -> String) {
         #if DEBUG
-        let text = message()
-        print("[AdKit] \(text)")
-        logger.debug("\(text, privacy: .public)")
+        write(message())
         #endif
     }
 
@@ -32,9 +35,15 @@ public enum AdKitLog {
     /// попадает в один поток с логами пакета и одинаково видна на устройстве.
     public static func app(_ message: @autoclosure () -> String) {
         #if DEBUG
-        let text = message()
-        print("[AdKit] \(text)")
-        logger.debug("\(text, privacy: .public)")
+        write(message())
         #endif
     }
+
+    #if DEBUG
+    private static func write(_ text: String) {
+        let line = "\(prefix) \(text)"
+        print(line)
+        logger.debug("\(line, privacy: .public)")
+    }
+    #endif
 }
