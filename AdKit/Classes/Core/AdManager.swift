@@ -338,35 +338,29 @@ public class AdManager {
         coldStartTimeoutWorkItem = timeoutItem
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout, execute: timeoutItem)
 
-        appOpenAd = AMAppOpenAd(ad: AdKit.host.appOpenPlacement)
+        // Реклама могла быть запрошена заранее (preloadAppOpen). Тогда не создаём
+        // новый инстанс и не начинаем загрузку сначала, а подхватываем имеющийся.
+        let ad: AMAppOpenAd
+        let isFreshRequest: Bool
+        if let preloaded = appOpenAd {
+            ad = preloaded
+            isFreshRequest = false
+            AdKitLog.log(isAppOpenAdAvailable()
+                ? "cold start: беру предзагруженную рекламу, она уже готова"
+                : "cold start: подхватываю предзагрузку, она ещё грузится")
+        } else {
+            AdKitLog.log("cold start: предзагрузки нет, запрашиваю сейчас")
+            ad = AMAppOpenAd(ad: AdKit.host.appOpenPlacement)
+            appOpenAd = ad
+            isFreshRequest = true
+        }
+
+        _ = ad
             .setDidLoadHandler { [weak self, weak viewController] in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
                     self.appOpenLoadTime = Date()
-
-                    // Уже сдались по таймауту — рекламу не показываем (дашборд уже открыт).
-                    guard !self.coldStartFinished else {
-                        AdKitLog.log("cold start: реклама загрузилась ПОСЛЕ таймаута — показ отменён, дашборд уже открыт")
-                        return
-                    }
-
-                    // Загрузилась вовремя — отменяем таймаут загрузки.
-                    self.coldStartTimeoutWorkItem?.cancel()
-                    self.coldStartTimeoutWorkItem = nil
-
-                    // Не показываем, если нет VC или сверху открыта модалка (форма consent/ATT).
-                    guard let vc = viewController,
-                          vc.viewIfLoaded != nil,
-                          vc.presentedViewController == nil else {
-                        AdKitLog.log("cold start: показывать некуда — экран отсутствует или сверху открыта модалка")
-                        self.finishColdStart()
-                        return
-                    }
-
-                    // Заставку НЕ снимаем здесь — она остаётся под рекламой до её закрытия (didClose).
-                    AdKitLog.log("cold start: показываю AppOpen")
-                    self.isShowingAppOpenAd = true
-                    self.appOpenAd?.present(in: vc)
+                    self.presentColdStartAd(from: viewController)
                 }
             }
             .setDidFailPresentHandler { [weak self] error in
@@ -381,10 +375,72 @@ public class AdManager {
                 AdKitLog.log("cold start: рекламы нет в наличии")
                 self?.finishColdStart()
             }
-        appOpenAd?.loadAd()
+
+        if isFreshRequest {
+            ad.loadAd()
+        } else if isAppOpenAdAvailable() {
+            // Предзагрузка успела закончиться раньше — колбэк загрузки уже отработал
+            // и второй раз не придёт, показываем сами.
+            presentColdStartAd(from: viewController)
+        }
     }
 
     /// Завершает cold-start ровно один раз: сбрасывает флаги и вызывает колбэк снятия заставки.
+    /// Показ на холодном старте: общий путь для колбэка загрузки и для случая,
+    /// когда реклама была предзагружена и уже готова.
+    private func presentColdStartAd(from viewController: UIViewController?) {
+        guard !coldStartFinished else {
+            AdKitLog.log("cold start: реклама готова, но холодный старт уже завершён — показ отменён")
+            return
+        }
+
+        coldStartTimeoutWorkItem?.cancel()
+        coldStartTimeoutWorkItem = nil
+
+        guard let vc = viewController,
+              vc.viewIfLoaded != nil,
+              vc.presentedViewController == nil else {
+            AdKitLog.log("cold start: показывать некуда — экран отсутствует или сверху открыта модалка")
+            finishColdStart()
+            return
+        }
+
+        // Заставку НЕ снимаем здесь — она остаётся под рекламой до её закрытия.
+        AdKitLog.log("cold start: показываю AppOpen")
+        isShowingAppOpenAd = true
+        appOpenAd?.present(in: vc)
+    }
+
+    /// Запрашивает AppOpen заранее, не дожидаясь холодного старта.
+    ///
+    /// Замеры на устройстве: до ветки холодного старта приложение доходит только
+    /// на 2.4 с после запуска, а наполнение водопада занимает ещё 5.7 с — реклама
+    /// не успевала к дедлайну заставки и показ отменялся. Ранний запрос убирает
+    /// эти 2.4 с, не удлиняя саму заставку.
+    ///
+    /// Безопасно звать несколько раз: при уже существующем инстансе ничего не делает.
+    public func preloadAppOpen() {
+        guard appOpenAd == nil else {
+            AdKitLog.log("предзагрузка AppOpen: инстанс уже есть, пропускаю")
+            return
+        }
+        guard !getEligibleProviders(for: .appOpen).isEmpty else {
+            AdKitLog.log("предзагрузка AppOpen: провайдеров нет, пропускаю")
+            return
+        }
+
+        AdKitLog.log(String(format: "предзагрузка AppOpen: запрос на %.2f с после настройки пакета", AdKit.timeSinceConfigure))
+        let ad = AMAppOpenAd(ad: AdKit.host.appOpenPlacement)
+        appOpenAd = ad
+        _ = ad.setDidLoadHandler { [weak self] in
+            DispatchQueue.main.async {
+                self?.appOpenLoadTime = Date()
+                AdKitLog.log(String(format: "предзагрузка AppOpen: готова на %.2f с", AdKit.timeSinceConfigure))
+            }
+        }
+        ad.loadAd()
+    }
+
     private func waitForConfigThenRetryColdStart(from viewController: UIViewController, timeout: TimeInterval) {
         didWaitForColdStartConfig = true
 

@@ -41,6 +41,7 @@ public class AdInitializer: NSObject {
         GoogleMobileAds.MobileAds.shared.start()
         initializeAppLovinSDK()
         initializeAdPreloading()
+        preloadAppOpenAd()
     }
     
     private func updateMetaTrackingStatus() {
@@ -81,6 +82,12 @@ public class AdInitializer: NSObject {
         }
     }
     
+    /// AppOpen запрашивается как можно раньше: ждать, пока до него дойдёт
+    /// SceneDelegate, значит потерять больше двух секунд из бюджета заставки.
+    private func preloadAppOpenAd() {
+        AdManager.shared.preloadAppOpen()
+    }
+
     private func initializeAdPreloading() {
         let interstitialAdUnitIDs = AdKit.host.preloadedInterstitialPlacements
             .compactMap { $0.googleID }

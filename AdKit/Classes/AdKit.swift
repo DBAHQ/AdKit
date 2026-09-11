@@ -108,6 +108,9 @@ public enum AdKit {
         guard isConfigured else { return }
         AdKitLog.log("конфиг приехал — повторяю отложенные загрузки")
         NotificationCenter.default.post(name: configDidBecomeReadyNotification, object: nil)
+        // На чистой установке в момент инициализации SDK провайдеров ещё нет,
+        // и ранний запрос AppOpen не состоялся — пробуем снова.
+        AdManager.shared.preloadAppOpen()
     }
 
     // Короткие псевдонимы, чтобы перенесённый код читался как прежде.
