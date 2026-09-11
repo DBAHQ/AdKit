@@ -69,8 +69,10 @@ public class AdManager {
     private var coldStartConfigObserver: NSObjectProtocol?
     /// Конфиг уже ждали один раз — повторно не ждём, чтобы не зациклиться.
     private var didWaitForColdStartConfig = false
-    /// Подписка на активацию приложения для отложенной предзагрузки AppOpen.
-    private var preloadActivationObserver: NSObjectProtocol?
+    /// Сколько раз предзагрузка упиралась в фоновое состояние приложения.
+    private var preloadBackgroundRetries = 0
+    /// Примерно 3 секунды ожидания выхода из фона.
+    private static let maxPreloadBackgroundRetries = 30
 
     // MARK: - Mediation Logic
     
@@ -435,8 +437,11 @@ public class AdManager {
         // didFinishLaunching оно ещё числится именно там. Создать инстанс в этот
         // момент — значит получить мёртвый объект, который никогда не загрузится.
         guard UIApplication.shared.applicationState != .background else {
-            AdKitLog.log("предзагрузка AppOpen: приложение ещё в фоне — отложу до активации")
-            observeActivationForPreload()
+            // Ждать didBecomeActive нельзя: на устройстве это уведомление приходит
+            // ПОЗЖЕ холодного старта, и предзагрузка теряет смысл. Состояние
+            // перестаёт быть фоновым намного раньше — .inactive guard в loadAd
+            // устраивает, — поэтому коротко перепроверяем сами.
+            scheduleBackgroundRetryForPreload()
             return
         }
 
@@ -452,22 +457,20 @@ public class AdManager {
         ad.loadAd()
     }
 
-    /// Одноразовая подписка на активацию приложения: повторяет предзагрузку,
-    /// когда состояние перестанет быть фоновым.
-    private func observeActivationForPreload() {
-        guard preloadActivationObserver == nil else { return }
-        preloadActivationObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didBecomeActiveNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            if let observer = self.preloadActivationObserver {
-                NotificationCenter.default.removeObserver(observer)
-                self.preloadActivationObserver = nil
-            }
-            AdKitLog.log("предзагрузка AppOpen: приложение активно, повторяю")
-            self.preloadAppOpen()
+    /// Короткие повторы, пока приложение не выйдет из фонового состояния.
+    /// Первая попытка приходится на didFinishLaunching, где состояние ещё
+    /// фоновое, а нужное `.inactive` наступает уже через доли секунды.
+    private func scheduleBackgroundRetryForPreload() {
+        guard preloadBackgroundRetries < Self.maxPreloadBackgroundRetries else {
+            AdKitLog.log("предзагрузка AppOpen: приложение так и не вышло из фона, отменяю")
+            return
+        }
+        if preloadBackgroundRetries == 0 {
+            AdKitLog.log("предзагрузка AppOpen: приложение ещё в фоне — перепроверю через 0.1 с")
+        }
+        preloadBackgroundRetries += 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.preloadAppOpen()
         }
     }
 
