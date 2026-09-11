@@ -2,15 +2,13 @@
 //  AdKitLog.swift
 //  AdKit
 //
-//  Диагностика только для отладочных сборок. В Release тело функции пустое,
-//  вызовы выкидываются оптимизатором.
+//  Диагностика рекламы. РАБОТАЕТ И В RELEASE — намеренно, чтобы можно было
+//  разобрать поведение на проде.
 //
-//  Пишем и в print, и в os_log:
-//  - print виден в консоли Xcode, когда приложение запущено из Xcode;
-//  - os_log виден в Console.app и в `log stream` с Mac, когда устройство
-//    работает само по себе. Без него на реальном девайсе логов просто нет.
+//  Уровень notice, а не debug: debug-сообщения система держит только в памяти
+//  и в релизной сборке до Console.app обычно не доходят. notice сохраняется.
 //
-//  privacy: .public обязателен: иначе Console.app покажет <private> вместо текста.
+//  privacy: .public обязателен — иначе вместо текста будет <private>.
 //
 
 import Foundation
@@ -20,30 +18,25 @@ public enum AdKitLog {
 
     private static let logger = Logger(subsystem: "com.dbahq.adkit", category: "ads")
 
-    /// Префикс на КАЖДОЙ строке и в обоих каналах. В os_log он нужен не меньше,
-    /// чем в print: в общем потоке устройства без него рекламные строки
-    /// не отфильтровать, а подсистема видна не во всех просмотрщиках.
+    /// Префикс на КАЖДОЙ строке и в обоих каналах, чтобы рекламные строки
+    /// можно было отфильтровать грепом в общем потоке устройства.
     private static let prefix = "[AdKit]"
 
     static func log(_ message: @autoclosure () -> String) {
-        #if DEBUG
         write(message())
-        #endif
     }
 
     /// Та же запись, но доступна приложению: диагностика на стороне хоста
-    /// попадает в один поток с логами пакета и одинаково видна на устройстве.
+    /// попадает в один поток с логами пакета.
     public static func app(_ message: @autoclosure () -> String) {
-        #if DEBUG
         write(message())
-        #endif
     }
 
-    #if DEBUG
     private static func write(_ text: String) {
         let line = "\(prefix) \(text)"
+        #if DEBUG
         print(line)
-        logger.debug("\(line, privacy: .public)")
+        #endif
+        logger.notice("\(line, privacy: .public)")
     }
-    #endif
 }

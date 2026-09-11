@@ -2,12 +2,11 @@
 //  AdKitDebugProxies.swift
 //  AdKit
 //
-//  Обёртки над аналитикой и хранилищем, которые печатают всё, что через них
-//  проходит. Подставляются автоматически в AdKit.configure и существуют
-//  только в отладочных сборках — в Release файла как будто нет.
+//  Обёртки над аналитикой и хранилищем, которые логируют всё, что через них
+//  проходит. Подставляются автоматически в AdKit.configure.
+//  Работают и в Release — чтобы поведение можно было разобрать на проде.
 //
 
-#if DEBUG
 import Foundation
 
 // MARK: - Аналитика
@@ -167,4 +166,3 @@ final class LoggingAdStorage: AdStorage {
         set { note("nativeDisplayCount", wrapped.nativeDisplayCount, newValue); wrapped.nativeDisplayCount = newValue }
     }
 }
-#endif
