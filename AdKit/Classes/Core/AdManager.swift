@@ -306,6 +306,7 @@ public class AdManager {
         // Общий бюджет заставки: ожидание конфига и загрузка рекламы делят его
         // между собой, поэтому пользователь не ждёт два раза по timeout.
         coldStartDeadline = Date().addingTimeInterval(timeout)
+        AdKitLog.log("cold start: старт, бюджет заставки \(timeout) с")
         startColdStart(from: viewController)
     }
 
@@ -331,6 +332,7 @@ public class AdManager {
         // Как только реклама загрузилась, таймаут отменяется (дальше ждём показа/закрытия).
         let timeoutItem = DispatchWorkItem { [weak self] in
             guard let self = self, !self.coldStartFinished else { return }
+            AdKitLog.log("cold start: реклама не успела загрузиться за \(String(format: "%.1f", timeout)) с — открываю дашборд без неё")
             self.finishColdStart()
         }
         coldStartTimeoutWorkItem = timeoutItem
@@ -343,7 +345,10 @@ public class AdManager {
                     self.appOpenLoadTime = Date()
 
                     // Уже сдались по таймауту — рекламу не показываем (дашборд уже открыт).
-                    guard !self.coldStartFinished else { return }
+                    guard !self.coldStartFinished else {
+                        AdKitLog.log("cold start: реклама загрузилась ПОСЛЕ таймаута — показ отменён, дашборд уже открыт")
+                        return
+                    }
 
                     // Загрузилась вовремя — отменяем таймаут загрузки.
                     self.coldStartTimeoutWorkItem?.cancel()
@@ -353,22 +358,27 @@ public class AdManager {
                     guard let vc = viewController,
                           vc.viewIfLoaded != nil,
                           vc.presentedViewController == nil else {
+                        AdKitLog.log("cold start: показывать некуда — экран отсутствует или сверху открыта модалка")
                         self.finishColdStart()
                         return
                     }
 
                     // Заставку НЕ снимаем здесь — она остаётся под рекламой до её закрытия (didClose).
+                    AdKitLog.log("cold start: показываю AppOpen")
                     self.isShowingAppOpenAd = true
                     self.appOpenAd?.present(in: vc)
                 }
             }
-            .setDidFailPresentHandler { [weak self] _ in
+            .setDidFailPresentHandler { [weak self] error in
+                AdKitLog.log("cold start: показ не удался — \(error?.localizedDescription ?? "без описания")")
                 self?.finishColdStart()
             }
             .setDidCloseHandler { [weak self] in
+                AdKitLog.log("cold start: реклама закрыта пользователем")
                 self?.finishColdStart()
             }
             .setNoAdsAvailableHandler { [weak self] in
+                AdKitLog.log("cold start: рекламы нет в наличии")
                 self?.finishColdStart()
             }
         appOpenAd?.loadAd()
