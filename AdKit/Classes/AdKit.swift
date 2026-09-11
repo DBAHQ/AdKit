@@ -57,6 +57,17 @@ public enum AdKit {
     public static var debugForcedProvider: AdProvider? = .appLovin
     #endif
 
+    /// Момент настройки пакета — практически момент запуска приложения.
+    /// Нужен, чтобы измерить, какая доля времени до первой рекламы уходит
+    /// на подъём рекламного SDK, а какая — на саму загрузку объявления.
+    private static var configuredAt: Date?
+
+    /// Секунд с момента настройки пакета.
+    static var timeSinceConfigure: TimeInterval {
+        guard let configuredAt else { return 0 }
+        return Date().timeIntervalSince(configuredAt)
+    }
+
     private static var storedConfiguration: AdConfiguration?
 
     /// Настроен ли пакет. Полезно, чтобы не дёргать рекламу слишком рано.
@@ -75,6 +86,7 @@ public enum AdKit {
             host: configuration.host,
             theme: configuration.theme
         )
+        configuredAt = Date()
         AdKitLog.log("настроен, версия \(version)")
     }
 

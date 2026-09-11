@@ -90,7 +90,7 @@ final class LoggingAnalyticsSink: AdAnalyticsSink {
     }
 
     func adSDKDidInitialize() {
-        event("sdkDidInitialize", "рекламный SDK поднялся")
+        event("sdkDidInitialize", String(format: "рекламный SDK поднялся через %.2f с после старта", AdKit.timeSinceConfigure))
         wrapped.adSDKDidInitialize()
     }
 }

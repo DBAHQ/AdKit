@@ -306,7 +306,7 @@ public class AdManager {
         // Общий бюджет заставки: ожидание конфига и загрузка рекламы делят его
         // между собой, поэтому пользователь не ждёт два раза по timeout.
         coldStartDeadline = Date().addingTimeInterval(timeout)
-        AdKitLog.log("cold start: старт, бюджет заставки \(timeout) с")
+        AdKitLog.log(String(format: "cold start: старт, бюджет заставки %.1f с (с настройки пакета прошло %.2f с)", timeout, AdKit.timeSinceConfigure))
         startColdStart(from: viewController)
     }
 
