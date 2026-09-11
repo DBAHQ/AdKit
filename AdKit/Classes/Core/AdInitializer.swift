@@ -75,6 +75,8 @@ public class AdInitializer: NSObject {
             }
             ALSdk.shared().initialize(with: initConfig) { sdkConfig in
                 self.isAppLovinInitialized = true
+                // Рекламный SDK поднят — самое раннее осмысленное время для AppOpen.
+                AdManager.shared.preloadAppOpen()
                 // eventService доступен только после инициализации — сливаем
                 // события, накопленные до этого момента (app_open и т.п.).
                 AdKit.analytics.adSDKDidInitialize()

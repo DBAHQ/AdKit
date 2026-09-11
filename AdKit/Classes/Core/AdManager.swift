@@ -69,6 +69,8 @@ public class AdManager {
     private var coldStartConfigObserver: NSObjectProtocol?
     /// Конфиг уже ждали один раз — повторно не ждём, чтобы не зациклиться.
     private var didWaitForColdStartConfig = false
+    /// Подписка на активацию приложения для отложенной предзагрузки AppOpen.
+    private var preloadActivationObserver: NSObjectProtocol?
 
     // MARK: - Mediation Logic
     
@@ -429,6 +431,15 @@ public class AdManager {
             return
         }
 
+        // AMAppOpenAd.loadAd() молча выходит, пока приложение в фоне, а внутри
+        // didFinishLaunching оно ещё числится именно там. Создать инстанс в этот
+        // момент — значит получить мёртвый объект, который никогда не загрузится.
+        guard UIApplication.shared.applicationState != .background else {
+            AdKitLog.log("предзагрузка AppOpen: приложение ещё в фоне — отложу до активации")
+            observeActivationForPreload()
+            return
+        }
+
         AdKitLog.log(String(format: "предзагрузка AppOpen: запрос на %.2f с после настройки пакета", AdKit.timeSinceConfigure))
         let ad = AMAppOpenAd(ad: AdKit.host.appOpenPlacement)
         appOpenAd = ad
@@ -439,6 +450,25 @@ public class AdManager {
             }
         }
         ad.loadAd()
+    }
+
+    /// Одноразовая подписка на активацию приложения: повторяет предзагрузку,
+    /// когда состояние перестанет быть фоновым.
+    private func observeActivationForPreload() {
+        guard preloadActivationObserver == nil else { return }
+        preloadActivationObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            if let observer = self.preloadActivationObserver {
+                NotificationCenter.default.removeObserver(observer)
+                self.preloadActivationObserver = nil
+            }
+            AdKitLog.log("предзагрузка AppOpen: приложение активно, повторяю")
+            self.preloadAppOpen()
+        }
     }
 
     private func waitForConfigThenRetryColdStart(from viewController: UIViewController, timeout: TimeInterval) {
