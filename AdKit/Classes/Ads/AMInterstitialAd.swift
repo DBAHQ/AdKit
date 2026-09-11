@@ -425,6 +425,7 @@ public class AMInterstitialAd: NSObject, FullScreenContentDelegate, Interstitial
 
     /// Перезапрос загрузки AppLovin-интера после CPM-бэкоффа.
     private func scheduleCPMBackoffReload(after delay: TimeInterval) {
+        AdKitLog.log("бэкофф inter '\(ad.placement)': перезапрос через \(delay) с")
         cpmBackoffTimer?.invalidate()
         cpmBackoffTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self, UIApplication.shared.applicationState == .active else { return }

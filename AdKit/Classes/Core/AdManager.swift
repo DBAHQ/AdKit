@@ -73,6 +73,14 @@ public class AdManager {
     // MARK: - Mediation Logic
     
     public func getEligibleProviders(for adType: AdType) -> [AdProvider] {
+        #if DEBUG
+        // ⚠️ Тестовый режим: см. AdKit.debugForcedProvider. Правила ниже пропускаются.
+        if let forced = AdKit.debugForcedProvider {
+            AdKitLog.log("⚠️ providers(\(adType)) = [\(forced.rawValue)] — ФОРСИРОВАНО в пакете, правила медиации пропущены")
+            return [forced]
+        }
+        #endif
+
         // Rule 1: Global Ad Permission
         guard AdKit.remoteConfig.isAdEnabled else {
             AdKitLog.log("providers(\(adType)) = [] — isAdEnabled = false")

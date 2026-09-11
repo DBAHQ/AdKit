@@ -42,6 +42,21 @@ public enum AdKit {
     /// Рекламные вью на него переподписываются и повторяют неудавшуюся загрузку.
     public static let configDidBecomeReadyNotification = Notification.Name("AdKit.configDidBecomeReady")
 
+    /// ⚠️ ВРЕМЕННЫЙ ТЕСТОВЫЙ РЕЖИМ.
+    ///
+    /// Форсирует провайдера прямо в медиации пакета, минуя ВСЕ правила:
+    /// isAdEnabled, отдельный флаг AppOpen, mediationProvider с бекенда и
+    /// список отключённых провайдеров. Нужен, чтобы прогнать CPM-бэкофф на
+    /// AppLovin, у которого есть реальная выручка с показа.
+    ///
+    /// Существует только в отладочных сборках: в Release этого свойства нет,
+    /// и обращение к нему не скомпилируется. Поэтому в стор он уехать не может.
+    ///
+    /// Поставить nil, когда проверка закончится.
+    #if DEBUG
+    public static var debugForcedProvider: AdProvider? = .appLovin
+    #endif
+
     private static var storedConfiguration: AdConfiguration?
 
     /// Настроен ли пакет. Полезно, чтобы не дёргать рекламу слишком рано.

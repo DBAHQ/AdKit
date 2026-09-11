@@ -550,6 +550,7 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     /// Перезапрос загрузки AppLovin после CPM-бэкоффа. Если экран не виден — откладываем
     /// перезапрос и пробуем снова позже (не грузим рекламу на невидимом экране).
     private func scheduleAppLovinBackoffReload(after delay: TimeInterval) {
+        AdKitLog.log("бэкофф native '\(adUnit?.placement ?? "-")': перезапрос через \(delay) с")
         backoffTimer?.invalidate()
         backoffTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self = self else { return }

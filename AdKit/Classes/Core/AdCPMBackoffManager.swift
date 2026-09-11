@@ -79,6 +79,7 @@ public final class AdCPMBackoffManager {
     /// Вызывать при возврате приложения на передний план — чтобы устаревшая сессия
     /// сбросилась сразу, не дожидаясь следующей загрузки рекламы.
     public func appWillEnterForeground() {
+        AdKitLog.log("бэкофф: возврат из фона, проверяю срок сессии")
         expireSessionIfNeeded()
     }
 
@@ -134,10 +135,12 @@ public final class AdCPMBackoffManager {
             state.badStreak = 0
             states[adUnitID] = state
             startSessionIfNeeded()
+            AdKitLog.log("бэкофф \(label): baseline сессии установлен = \(revenue) (юнит \(adUnitID))")
             return .show
         }
 
         let threshold = baseline * percent / 100.0
+        AdKitLog.log("бэкофф \(label): revenue \(revenue) против порога \(threshold) (baseline \(baseline) × \(percent)%), подряд плохих \(state.badStreak)")
 
         if revenue >= threshold {
             // Хороший CPM — показываем, сбрасываем бэкофф-счётчик.
@@ -162,6 +165,7 @@ public final class AdCPMBackoffManager {
     private func startSessionIfNeeded() {
         guard sessionStartDate == nil else { return }
         sessionStartDate = Date()
+        AdKitLog.log("бэкофф: старт сессии, таймаут \(AdKit.remoteConfig.adSessionTimeoutMin) мин")
     }
 
     /// Если с момента старта сессии прошло больше adSessionTimeoutMin — сессия окончена:
@@ -171,6 +175,7 @@ public final class AdCPMBackoffManager {
 
         let timeout = AdKit.remoteConfig.adSessionTimeoutMin * 60.0
         if Date().timeIntervalSince(start) > timeout {
+            AdKitLog.log("бэкофф: сессия истекла (\(AdKit.remoteConfig.adSessionTimeoutMin) мин) — сбрасываю baseline и счётчики")
             states.removeAll()
             sessionStartDate = nil
         }
