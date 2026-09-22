@@ -131,6 +131,15 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     /// с вью сети, поэтому подписка на уход с экрана не теряется между показами.
     private var hostView: BannerHostView?
     private var isAutoRefreshPaused = false
+    /// Сеть, под которую собрана текущая вью. Провайдер может смениться между
+    /// попытками: настройки бэкенда приезжают позже Remote Config.
+    private var attachedProvider: AdProvider?
+    /// Было ли хоть одно успешно загруженное объявление в этом объекте.
+    private var hasEverLoaded = false
+    /// Повтор отложен до возвращения контейнера на экран.
+    private var needsReloadWhenVisible = false
+    private weak var lastContainerView: UIView?
+    private var configReadyObserver: NSObjectProtocol?
     
     // MARK: - Initializers
     
@@ -138,6 +147,65 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         self.ad = ad
         self.size = size
         super.init()
+        observeConfigReady()
+    }
+
+    deinit {
+        if let configReadyObserver {
+            NotificationCenter.default.removeObserver(configReadyObserver)
+        }
+    }
+
+    /// На чистой установке баннер уходит в сеть раньше, чем приезжают настройки
+    /// бэкенда: `mediationProvider` ещё пуст, провайдер выбирается запасным (AdMob),
+    /// и такой запрос обычно не наливается. Второй попытки не было — место оставалось
+    /// пустым до перезапуска приложения. Нативка этим не болела: у неё свои повторы.
+    private func observeConfigReady() {
+        configReadyObserver = NotificationCenter.default.addObserver(
+            forName: AdKit.configDidBecomeReadyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadIfNeverLoaded()
+        }
+    }
+
+    /// Повтор только пока объявления вообще не было: дальше загрузками управляет
+    /// авто-рефреш сети, и дёргать её своими запросами не нужно.
+    private func reloadIfNeverLoaded() {
+        guard !hasEverLoaded, let container = lastContainerView else { return }
+
+        guard container.window != nil else {
+            AdKitLog.log("banner '\(ad.placement)': конфиг приехал, но контейнер вне окна — повтор отложен")
+            needsReloadWhenVisible = true
+            return
+        }
+
+        AdKitLog.log("banner '\(ad.placement)': объявления так и не было, повторяю с новым конфигом")
+        _ = loadAd(containerView: container)
+    }
+
+    /// Смена сети между попытками: прежнюю вью надо убрать, иначе она останется
+    /// в прослойке вторым слоем и будет держать свой рефреш.
+    private func discardNetworkViews() {
+        googleBannerView?.isAutoloadEnabled = false
+        googleBannerView?.removeFromSuperview()
+        googleBannerView = nil
+
+        appLovinBannerView?.stopAutoRefresh()
+        appLovinBannerView?.removeFromSuperview()
+        appLovinBannerView = nil
+
+        yandexBannerView?.removeFromSuperview()
+        yandexBannerView = nil
+
+        isAutoRefreshPaused = false
+    }
+
+    /// Объявление наконец пришло — повторы больше не нужны.
+    private func noteLoadSucceeded() {
+        hasEverLoaded = true
+        needsReloadWhenVisible = false
     }
     
     // MARK: - Setters
@@ -161,6 +229,8 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     
     func loadAd(containerView: UIView) -> UIView? {
         AdKitLog.log("banner '\(ad.placement)': загрузка")
+        lastContainerView = containerView
+        needsReloadWhenVisible = false
         let providers = AdManager.shared.getEligibleProviders(for: .banner)
         
         guard let provider = providers.first else {
@@ -168,6 +238,11 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
             return nil
         }
         
+        if let attachedProvider, attachedProvider != provider {
+            AdKitLog.log("banner '\(ad.placement)': провайдер сменился \(attachedProvider.rawValue) → \(provider.rawValue), убираю прежнюю вью")
+            discardNetworkViews()
+        }
+        attachedProvider = provider
         AdKitLog.log("banner '\(ad.placement)': провайдер \(provider.rawValue)")
         switch provider {
         case .yandex:
@@ -359,11 +434,16 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
 
     /// Баннер снова на экране — возвращаем рефреш.
     func resumeAutoRefresh() {
-        guard isAutoRefreshPaused else { return }
-        isAutoRefreshPaused = false
-        appLovinBannerView?.startAutoRefresh()
-        googleBannerView?.isAutoloadEnabled = true
-        AdKitLog.log("banner '\(ad.placement)': снова на экране — авто-рефреш возобновлён")
+        if isAutoRefreshPaused {
+            isAutoRefreshPaused = false
+            appLovinBannerView?.startAutoRefresh()
+            googleBannerView?.isAutoloadEnabled = true
+            AdKitLog.log("banner '\(ad.placement)': снова на экране — авто-рефреш возобновлён")
+        }
+
+        if needsReloadWhenVisible {
+            reloadIfNeverLoaded()
+        }
     }
 
     /// Ответ сети пришёл, когда баннера на экране уже нет: контроллер успел уйти вместе
@@ -379,6 +459,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     
     func bannerViewDidReceiveAd(_ bannerView: BannerView) {
         pauseAutoRefreshIfDetached()
+        noteLoadSucceeded()
         failedRequests.reset()
         AdKit.analytics.trackBannerAdDidLoad(in: ad.placement, type: "Banner",
                                                      bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
@@ -411,6 +492,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
 
     func adViewDidLoad(_ adView: AdView) {
         pauseAutoRefreshIfDetached()
+        noteLoadSucceeded()
         failedRequests.reset()
         AdKit.analytics.trackBannerAdDidLoad(in: ad.placement, type: "Banner",
                                                      bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
@@ -468,6 +550,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
 
     func didLoad(_ ad: MAAd) {
         pauseAutoRefreshIfDetached()
+        noteLoadSucceeded()
         failedRequests.reset()
         let loadingTime = AdLoadTimeTracker.loadingTime(since: appLovinLoadStartDate)
         appLovinLoadStartDate = nil
