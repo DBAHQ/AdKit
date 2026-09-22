@@ -7,6 +7,29 @@ import GoogleMobileAds
 import YandexMobileAds
 import AppLovinSDK
 
+/// Прослойка между контейнером приложения и вью рекламной сети.
+///
+/// Нужна ровно ради одного: поймать момент, когда баннер уходит с экрана (pop,
+/// смена вкладки) и когда возвращается. Сами SDK этого не отслеживают — `MAAdView`
+/// и `BannerView` крутят авто-рефреш, пока живы, даже в отрыве от окна. А живут они
+/// до конца сессии: `AMBannerAd` лежит в статическом кэше по плейсменту и никем не
+/// выбрасывается. В итоге каждый посещённый экран оставлял за собой баннер, который
+/// до конца сессии слал `adDidLoad` со своим (давно закрытым) плейсментом.
+final class BannerHostView: UIView {
+
+    /// Слабая: владелец — `AMBannerAd`, который сам держит эту вью.
+    weak var ad: AMBannerAd?
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil {
+            ad?.pauseAutoRefresh()
+        } else {
+            ad?.resumeAutoRefresh()
+        }
+    }
+}
+
 class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelegate, MAAdRevenueDelegate {
     
     // MARK: - Static Methods
@@ -104,6 +127,10 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     private var yandexBannerView: AdView?
     private var googleBannerView: BannerView?
     private var appLovinBannerView: MAAdView?
+    /// Одна на всё время жизни объекта: переезжает из контейнера в контейнер вместе
+    /// с вью сети, поэтому подписка на уход с экрана не теряется между показами.
+    private var hostView: BannerHostView?
+    private var isAutoRefreshPaused = false
     
     // MARK: - Initializers
     
@@ -164,17 +191,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         }
         
         if let bannerView = self.yandexBannerView {
-            if bannerView.superview == containerView {
-            } else {
-                containerView.addSubview(bannerView)
-                bannerView.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-                    bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                    bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-                    bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-                ])
-            }
+            attachBanner(bannerView, to: containerView)
         } else {
             AdKit.analytics.trackBannerAdDidRequest(
                 in: self.ad.placement,
@@ -189,18 +206,11 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
             
             bannerView.delegate = self
             
-            containerView.addSubview(bannerView)
-            bannerView.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-                bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-                bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-            ])
+            attachBanner(bannerView, to: containerView)
             
             bannerView.loadAd()
         }
-        return yandexBannerView
+        return hostView
     }
     
     private func loadGoogleAd(containerView: UIView) -> UIView? {
@@ -209,19 +219,8 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         }
         
         if let bannerView = self.googleBannerView {
-            if bannerView.superview == containerView {
-                bannerView.isAutoloadEnabled = true
-            } else {
-                bannerView.isAutoloadEnabled = true
-                containerView.addSubview(bannerView)
-                bannerView.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-                    bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                    bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-                    bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-                ])
-            }
+            attachBanner(bannerView, to: containerView)
+            resumeAutoRefresh()
         } else {
             AdKit.analytics.trackBannerAdDidRequest(
                 in: self.ad.placement,
@@ -245,17 +244,10 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
                 AdKit.analytics.trackAdRevenue(in: self.ad.placement, type: "Banner", value: value.value.decimalValue, currency: value.currencyCode, network: "AdMob", adNetwork: winningNetwork, unitId: self.ad.googleID)
             }
             
-            containerView.addSubview(bannerView)
-            bannerView.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-                bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-                bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-            ])
+            attachBanner(bannerView, to: containerView)
         }
         
-        return googleBannerView
+        return hostView
     }
     
     private func loadAppLovinAd(containerView: UIView) -> UIView? {
@@ -264,19 +256,11 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         }
         
         if let bannerView = self.appLovinBannerView {
-            if bannerView.superview != containerView {
-                containerView.addSubview(bannerView)
-                bannerView.translatesAutoresizingMaskIntoConstraints = false
-                NSLayoutConstraint.activate([
-                    bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-                    bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-                    bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-                    bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-                ])
-            }
+            attachBanner(bannerView, to: containerView)
+            resumeAutoRefresh()
             appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
             bannerView.loadAd()
-            return bannerView
+            return hostView
         }
         
         AdKit.analytics.trackBannerAdDidRequest(
@@ -298,30 +282,103 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         bannerView.loadAd()
         self.appLovinBannerView = bannerView
         
-        containerView.addSubview(bannerView)
-        bannerView.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            bannerView.leftAnchor.constraint(equalTo: containerView.leftAnchor),
-            bannerView.topAnchor.constraint(equalTo: containerView.topAnchor),
-            bannerView.rightAnchor.constraint(equalTo: containerView.rightAnchor),
-            bannerView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
-        ])
+        attachBanner(bannerView, to: containerView)
         
-        return bannerView
+        return hostView
     }
     
     func stopAd() {
-        googleBannerView?.isAutoloadEnabled = false
+        pauseAutoRefresh()
+
         googleBannerView?.removeFromSuperview()
         googleBannerView = nil
         
         appLovinBannerView?.removeFromSuperview()
         appLovinBannerView = nil
+
+        hostView?.ad = nil
+        hostView?.removeFromSuperview()
+        hostView = nil
+    }
+
+    // MARK: - Auto Refresh
+
+    /// Вью сети живёт внутри прослойки пакета, а не прямо в контейнере приложения:
+    /// приложение вольно выбрасывать и переиспользовать контейнеры, а прослойка одна
+    /// и переезжает вместе с баннером, сохраняя подписку на появление/уход с экрана.
+    @discardableResult
+    private func attachBanner(_ adView: UIView, to containerView: UIView) -> BannerHostView {
+        let host: BannerHostView
+        if let existing = hostView {
+            host = existing
+        } else {
+            host = BannerHostView()
+            host.ad = self
+            host.backgroundColor = .clear
+            hostView = host
+        }
+
+        if host.superview !== containerView {
+            host.removeFromSuperview()
+            containerView.addSubview(host)
+            host.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                host.leftAnchor.constraint(equalTo: containerView.leftAnchor),
+                host.topAnchor.constraint(equalTo: containerView.topAnchor),
+                host.rightAnchor.constraint(equalTo: containerView.rightAnchor),
+                host.bottomAnchor.constraint(equalTo: containerView.bottomAnchor)
+            ])
+        }
+
+        if adView.superview !== host {
+            adView.removeFromSuperview()
+            host.addSubview(adView)
+            adView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                adView.leftAnchor.constraint(equalTo: host.leftAnchor),
+                adView.topAnchor.constraint(equalTo: host.topAnchor),
+                adView.rightAnchor.constraint(equalTo: host.rightAnchor),
+                adView.bottomAnchor.constraint(equalTo: host.bottomAnchor)
+            ])
+        }
+
+        return host
+    }
+
+    /// Баннер ушёл с экрана. Рефреш сети сам не останавливается: `AMBannerAd` лежит
+    /// в статическом кэше, вью сети держится за него — и до конца сессии подгружает
+    /// новые объявления, отправляя `adDidLoad` с плейсментом закрытого экрана.
+    /// У Яндекса авто-рефреша нет: его `AdView` грузится только явным `loadAd()`.
+    func pauseAutoRefresh() {
+        guard !isAutoRefreshPaused else { return }
+        isAutoRefreshPaused = true
+        appLovinBannerView?.stopAutoRefresh()
+        googleBannerView?.isAutoloadEnabled = false
+        AdKitLog.log("banner '\(ad.placement)': ушёл с экрана — авто-рефреш на паузе")
+    }
+
+    /// Баннер снова на экране — возвращаем рефреш.
+    func resumeAutoRefresh() {
+        guard isAutoRefreshPaused else { return }
+        isAutoRefreshPaused = false
+        appLovinBannerView?.startAutoRefresh()
+        googleBannerView?.isAutoloadEnabled = true
+        AdKitLog.log("banner '\(ad.placement)': снова на экране — авто-рефреш возобновлён")
+    }
+
+    /// Ответ сети пришёл, когда баннера на экране уже нет: контроллер успел уйти вместе
+    /// с прослойкой, и `didMoveToWindow` не пришёл (вью уничтожили, а не сняли с окна).
+    /// Гасим рефреш прямо в колбэке — это последний рубеж, после него хвост обрывается.
+    /// Само событие отправляем: это честный ответ на запрос с ещё открытого экрана.
+    private func pauseAutoRefreshIfDetached() {
+        guard hostView?.window == nil else { return }
+        pauseAutoRefresh()
     }
     
     // MARK: - GADBannerViewDelegate
     
     func bannerViewDidReceiveAd(_ bannerView: BannerView) {
+        pauseAutoRefreshIfDetached()
         failedRequests.reset()
         AdKit.analytics.trackBannerAdDidLoad(in: ad.placement, type: "Banner",
                                                      bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
@@ -353,6 +410,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     // MARK: - AdViewDelegate (Yandex)
 
     func adViewDidLoad(_ adView: AdView) {
+        pauseAutoRefreshIfDetached()
         failedRequests.reset()
         AdKit.analytics.trackBannerAdDidLoad(in: ad.placement, type: "Banner",
                                                      bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
@@ -409,6 +467,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     // MARK: - MAAdViewAdDelegate (AppLovin)
 
     func didLoad(_ ad: MAAd) {
+        pauseAutoRefreshIfDetached()
         failedRequests.reset()
         let loadingTime = AdLoadTimeTracker.loadingTime(since: appLovinLoadStartDate)
         appLovinLoadStartDate = nil
