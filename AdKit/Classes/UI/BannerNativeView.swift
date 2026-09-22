@@ -59,6 +59,9 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
         return value
     }
     private var refreshTimer: Timer?
+    /// Сколько раз подряд повтор упёрся в невидимый экран. Пауза растёт от 2 с к 30 с:
+    /// без этого вью, экран которой давно закрыт, дёргала загрузку каждые 2 с до конца сессии.
+    private var visibilityRetryCount = 0
     
     private lazy var containerView: ContainerView = {
         let view = ContainerView()
@@ -198,6 +201,9 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
 
     deinit {
         stopObservingConfigReady()
+        refreshTimer?.invalidate()
+        fallbackTimer?.invalidate()
+        backoffTimer?.invalidate()
     }
 
     // MARK: - Готовность конфига
@@ -234,12 +240,28 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     override func didMoveToWindow() {
         super.didMoveToWindow()
 
-        if window != nil && alpha > 0 && appLovinNativeAd != nil {
-            if let ad = appLovinNativeAd {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.didDisplay(ad)
-                }
+        guard window != nil else {
+            // Вью ушла с экрана. Таймеры без этого крутились бы вечно: объект держит
+            // статический кэш AMNativeAd, и `cleanupAd` для него уже не вызовется.
+            // Работу возобновим здесь же, когда вью вернётся в окно.
+            AdKitLog.log("native '\(adUnit?.placement ?? "-")': ушла из окна — таймеры остановлены")
+            stopAutoRefreshTimer()
+            backoffTimer?.invalidate()
+            backoffTimer = nil
+            visibilityRetryCount = 0
+            return
+        }
+
+        if alpha > 0, let ad = appLovinNativeAd {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.didDisplay(ad)
             }
+        }
+
+        if isAdLoaded {
+            startAutoRefreshTimer()
+        } else if !isLoadingAd {
+            loadAd()
         }
     }
     
@@ -356,8 +378,14 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     private func refreshAd() {
         AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': сработал таймер")
         guard isHostScreenVisible() else {
+            // Вне окна таймер не перевзводим: вью может быть уже выброшенной вместе с экраном,
+            // и это крутилось бы до конца сессии. Рефреш вернёт didMoveToWindow.
+            guard window != nil else {
+                AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': вью вне окна, таймер остановлен")
+                return
+            }
             AdKitLog.log("рефреш native '\(adUnit?.placement ?? "-")': экран не виден, перевзвожу таймер")
-            // Экран не виден — запрос НЕ делаем, но перевзводим таймер,
+            // Экран перекрыт, но вью в окне — запрос НЕ делаем, перевзводим таймер,
             // чтобы рефреш сам возобновился, когда экран снова станет видимым.
             startAutoRefreshTimer()
             return
@@ -419,13 +447,26 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
             }
             return false
         }
+        visibilityRetryCount = 0
         return true
     }
 
     private func scheduleVisibilityRetry() {
-        AdKitLog.log("native '\(adUnit?.placement ?? "-")': экран не виден, повтор через 2 с")
         stopAutoRefreshTimer()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+
+        // Вью вне окна — ждать нечего: загрузку перезапустит didMoveToWindow.
+        guard window != nil else {
+            AdKitLog.log("native '\(adUnit?.placement ?? "-")': вне окна, повтор не планируем")
+            visibilityRetryCount = 0
+            return
+        }
+
+        // Экран в окне, но сверху другой (модалка, таб): ждём и пробуем снова, постепенно
+        // разряжая попытки, чтобы не молотить раз в 2 с всё время, пока экран перекрыт.
+        let delay = min(2.0 * pow(2.0, Double(visibilityRetryCount)), 30.0)
+        visibilityRetryCount += 1
+        AdKitLog.log("native '\(adUnit?.placement ?? "-")': экран не виден, повтор через \(delay) с")
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             self?.loadAd()
         }
     }
@@ -857,9 +898,13 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     }
     
     func didFailToLoadAd(forAdUnitIdentifier adUnitIdentifier: String, withError error: MAError) {
+        // Тот же лимит, что и в didFailToLoadNativeAd: без него это бесконечный
+        // перезапрос раз в секунду до конца сессии.
+        guard loadRetryCount < maxLoadRetries else { return }
+        loadRetryCount += 1
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
-                  self?.loadAd()
-              }
+            self?.loadAd()
+        }
     }
     func didDisplay(_ ad: MAAd) {
         guard !didReportDisplay else {
