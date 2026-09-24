@@ -434,10 +434,15 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     /// новые объявления, отправляя `adDidLoad` с плейсментом закрытого экрана.
     /// У Яндекса авто-рефреша нет: его `AdView` грузится только явным `loadAd()`.
     func pauseAutoRefresh() {
-        guard !isAutoRefreshPaused else { return }
-        isAutoRefreshPaused = true
+        // Гасим сеть на каждом поводе, а не только на первом. `stopAutoRefresh`, вызванный
+        // до того, как приехало первое объявление, не запоминается: MAX заводит таймер
+        // рефреша в момент загрузки и про прежнюю паузу не знает. Так и получалось, что
+        // баннер экрана, накрытого сразу после запроса, крутился до конца сессии.
         appLovinBannerView?.stopAutoRefresh()
         googleBannerView?.isAutoloadEnabled = false
+
+        guard !isAutoRefreshPaused else { return }
+        isAutoRefreshPaused = true
         AdKitLog.log("banner '\(ad.placement)': ушёл с экрана — авто-рефреш на паузе")
     }
 
@@ -576,7 +581,10 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     }
 
     func didDisplay(_ ad: MAAd) {
-        incrementBannerDisplayCount()
+        // Намеренно пусто. Для MAAdView этот колбэк не гарантирован: в заголовке SDK
+        // сказано, что он остался только для полноэкранных форматов. Он и приходил
+        // через раз, из-за чего у баннеров терялся adDidDisplay. Показ считаем
+        // в didPayRevenue — он приходит на каждую открутку.
     }
 
     func didClick(_ ad: MAAd) {
@@ -598,6 +606,8 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     
     func didPayRevenue(for ad: MAAd) {
         AdKit.analytics.trackAdRevenue(in: self.ad.placement, type: "Banner", value: ad.revenue.decimalValue, currency: "USD", network: "AppLovin", adNetwork: ad.networkName, unitId: ad.adUnitIdentifier)
+        // Единственный надёжный признак открутки баннера у AppLovin — см. didDisplay.
+        incrementBannerDisplayCount()
     }
 
     func didFail(toDisplay ad: MAAd, withError error: MAError) {
