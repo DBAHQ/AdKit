@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'AdKit'
-  s.version          = '0.1.2'
+  s.version          = '0.1.3'
   s.summary          = 'Общий рекламный слой для приложений DBAHQ.'
   s.description      = <<-DESC
                        Медиация, загрузка и показ рекламы (AppOpen, interstitial, rewarded,

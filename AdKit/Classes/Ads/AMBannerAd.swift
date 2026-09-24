@@ -175,6 +175,15 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
     private func reloadIfNeverLoaded() {
         guard !hasEverLoaded, let container = lastContainerView else { return }
 
+        // Контейнер мог уехать под другой плейсмент: приложение снимает нашу прослойку
+        // и ставит туда свою. Тогда повторять нечего — иначе мы вернём в чужой контейнер
+        // баннер брошенного плейсмента, и он будет крутить там свой рефреш.
+        guard let host = hostView, host.superview != nil else {
+            AdKitLog.log("banner '\(ad.placement)': прослойка снята с контейнера — повтор не нужен")
+            needsReloadWhenVisible = false
+            return
+        }
+
         guard container.window != nil else {
             AdKitLog.log("banner '\(ad.placement)': конфиг приехал, но контейнер вне окна — повтор отложен")
             needsReloadWhenVisible = true
