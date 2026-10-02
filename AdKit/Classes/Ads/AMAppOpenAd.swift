@@ -285,7 +285,7 @@ class AMAppOpenAd: NSObject, FullScreenContentDelegate, AppOpenAdLoaderDelegate,
                 
                 AdKit.analytics.trackAdRevenue(in: ad.placement, type: "AppOpen", value: revenue, currency: "USD", network: "Yandex")
             } catch {
-                print(error.localizedDescription)
+                AdKitLog.log("appopen '\(ad.placement)': не разобрался доход Yandex — \(error.localizedDescription)")
             }
         }
     }

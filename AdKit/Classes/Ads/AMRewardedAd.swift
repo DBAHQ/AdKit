@@ -352,7 +352,7 @@ public class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoader
                 
                 AdKit.analytics.trackAdRevenue(in: ad.placement, type: "Rewarded", value: revenue, currency: "USD", network: "Yandex")
             } catch {
-                print(error.localizedDescription)
+                AdKitLog.log("rewarded '\(ad.placement)': не разобрался доход Yandex — \(error.localizedDescription)")
             }
         }
     }

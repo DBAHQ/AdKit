@@ -550,7 +550,7 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
                 
                 AdKit.analytics.trackAdRevenue(in: ad.placement, type: "Banner", value: revenue, currency: "USD", network: "Yandex")
             } catch {
-                print(error.localizedDescription)
+                AdKitLog.log("banner '\(ad.placement)': не разобрался доход Yandex — \(error.localizedDescription)")
             }
         }
     }
