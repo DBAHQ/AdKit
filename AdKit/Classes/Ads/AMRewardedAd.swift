@@ -128,18 +128,21 @@ public class AMRewardedAd: NSObject, FullScreenContentDelegate, RewardedAdLoader
     }
 
     private func loadAppLovinAd() {
-        AdKit.analytics.trackFullAdDidRequest(
-            in: self.ad.placement,
-            type: "Rewarded",
-            displayCount: AdKit.storage.rewardedDisplayCount,
-            fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
-            totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
-        )
-        appLovinRewardedAd = MARewardedAd.shared(withAdUnitIdentifier: self.ad.appLovinID)
-        appLovinRewardedAd?.delegate = self
-        appLovinRewardedAd?.revenueDelegate = self
-        appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-        appLovinRewardedAd?.load()
+        AdInitializer.shared.whenAppLovinReady { [weak self] in
+            guard let self = self else { return }
+            AdKit.analytics.trackFullAdDidRequest(
+                in: self.ad.placement,
+                type: "Rewarded",
+                displayCount: AdKit.storage.rewardedDisplayCount,
+                fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
+                totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
+            )
+            appLovinRewardedAd = MARewardedAd.shared(withAdUnitIdentifier: self.ad.appLovinID)
+            appLovinRewardedAd?.delegate = self
+            appLovinRewardedAd?.revenueDelegate = self
+            appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+            appLovinRewardedAd?.load()
+        }
     }
 
     private func addMintegralExtras(_ request: GoogleMobileAds.Request) {

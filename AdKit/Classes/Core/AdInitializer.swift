@@ -24,6 +24,8 @@ public class AdInitializer: NSObject {
     // MARK: - Properties
     
     private var isAppLovinInitialized = false
+    /// Загрузки AppLovin, пришедшие до колбэка `ALSdk.initialize` — иначе MAX отвечает SDK_NOT_INITIALIZED.
+    private var pendingAppLovinLoads: [() -> Void] = []
     private var hasRequestedConsent = false
     private var isRequestingATT = false
     
@@ -82,19 +84,51 @@ public class AdInitializer: NSObject {
     
     private func initializeAppLovinSDK() {
         if !isAppLovinInitialized {
-            guard let appLovinSdkKey = Bundle.main.infoDictionary?["AppLovinSdkKey"] as? String else { return }
+            guard let appLovinSdkKey = Bundle.main.infoDictionary?["AppLovinSdkKey"] as? String else {
+                // Без ключа колбэка не будет — не держим загрузки вечно.
+                markAppLovinInitialized()
+                return
+            }
             
             let initConfig = ALSdkInitializationConfiguration(sdkKey: appLovinSdkKey) { builder in
                 builder.mediationProvider = ALMediationProviderMAX
             }
             ALSdk.shared().initialize(with: initConfig) { sdkConfig in
-                self.isAppLovinInitialized = true
-                // Рекламный SDK поднят — самое раннее осмысленное время для AppOpen.
-                AdManager.shared.preloadAppOpen()
-                // eventService доступен только после инициализации — сливаем
-                // события, накопленные до этого момента (app_open и т.п.).
-                AdKit.analytics.adSDKDidInitialize()
+                DispatchQueue.main.async {
+                    self.markAppLovinInitialized()
+                    // Рекламный SDK поднят — самое раннее осмысленное время для AppOpen.
+                    AdManager.shared.preloadAppOpen()
+                    // eventService доступен только после инициализации — сливаем
+                    // события, накопленные до этого момента (app_open и т.п.).
+                    AdKit.analytics.adSDKDidInitialize()
+                }
             }
+        }
+    }
+
+    private func markAppLovinInitialized() {
+        isAppLovinInitialized = true
+        AdKitLog.log("[AppLovin] SDK initialized, pending loads: \(pendingAppLovinLoads.count)")
+        let loads = pendingAppLovinLoads
+        pendingAppLovinLoads.removeAll()
+        loads.forEach { $0() }
+    }
+
+    /// Выполняет загрузку AppLovin сразу, если SDK уже инициализирован, иначе — после колбэка инициализации.
+    /// Ждём только сам ALSdk: инициализацию адаптеров сетей не ждём.
+    func whenAppLovinReady(_ load: @escaping () -> Void) {
+        if Thread.isMainThread {
+            enqueueAppLovinLoad(load)
+        } else {
+            DispatchQueue.main.async { self.enqueueAppLovinLoad(load) }
+        }
+    }
+
+    private func enqueueAppLovinLoad(_ load: @escaping () -> Void) {
+        if isAppLovinInitialized {
+            load()
+        } else {
+            pendingAppLovinLoads.append(load)
         }
     }
     

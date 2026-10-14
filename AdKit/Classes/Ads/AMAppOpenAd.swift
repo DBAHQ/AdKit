@@ -128,18 +128,21 @@ class AMAppOpenAd: NSObject, FullScreenContentDelegate, AppOpenAdLoaderDelegate,
     }
     
     private func loadAppLovinAd() {
-        AdKit.analytics.trackFullAdDidRequest(
-            in: self.ad.placement,
-            type: "AppOpen",
-            displayCount: AdKit.storage.appOpenDisplayCount,
-            fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
-            totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
-        )
-        appLovinAppOpen = MAAppOpenAd(adUnitIdentifier: self.ad.appLovinID)
-        appLovinAppOpen?.delegate = self
-        appLovinAppOpen?.revenueDelegate = self
-        appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-        appLovinAppOpen?.load()
+        AdInitializer.shared.whenAppLovinReady { [weak self] in
+            guard let self = self else { return }
+            AdKit.analytics.trackFullAdDidRequest(
+                in: self.ad.placement,
+                type: "AppOpen",
+                displayCount: AdKit.storage.appOpenDisplayCount,
+                fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
+                totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
+            )
+            appLovinAppOpen = MAAppOpenAd(adUnitIdentifier: self.ad.appLovinID)
+            appLovinAppOpen?.delegate = self
+            appLovinAppOpen?.revenueDelegate = self
+            appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+            appLovinAppOpen?.load()
+        }
     }
 
     private func presentAppLovin(in viewController: UIViewController) {

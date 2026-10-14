@@ -568,24 +568,27 @@ class BannerNativeView: NativeAdView, NativeAdDelegate, NativeAdLoaderDelegate, 
     }
     
     private func loadAppLovinAd() {
-        // Сбрасываем флаг, чтобы пришедшее (в т.ч. по бэкоффу) объявление прошло в рендер.
-        isAdLoaded = false
+        AdInitializer.shared.whenAppLovinReady { [weak self] in
+            guard let self = self else { return }
+            // Сбрасываем флаг, чтобы пришедшее (в т.ч. по бэкоффу) объявление прошло в рендер.
+            isAdLoaded = false
 
-        guard canRequestAd("AppLovin") else { return }
-        AdKit.analytics.trackBannerAdDidRequest(
-            in: adUnit.placement,
-            type: "Native",
-            bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
-            displayCount: AdKit.storage.nativeDisplayCount,
-            totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
-        )
+            guard canRequestAd("AppLovin") else { return }
+            AdKit.analytics.trackBannerAdDidRequest(
+                in: adUnit.placement,
+                type: "Native",
+                bannersDisplayCount: AdKit.storage.bannerAndNativeDisplayCount,
+                displayCount: AdKit.storage.nativeDisplayCount,
+                totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
+            )
         
-        appLovinNativeAdLoader = MANativeAdLoader(adUnitIdentifier: adUnit.appLovinID)
-        appLovinNativeAdLoader?.nativeAdDelegate = self
-        appLovinNativeAdLoader?.revenueDelegate = self
+            appLovinNativeAdLoader = MANativeAdLoader(adUnitIdentifier: adUnit.appLovinID)
+            appLovinNativeAdLoader?.nativeAdDelegate = self
+            appLovinNativeAdLoader?.revenueDelegate = self
 
-        appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-        appLovinNativeAdLoader?.loadAd()
+            appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+            appLovinNativeAdLoader?.loadAd()
+        }
     }
 
     /// Перезапрос загрузки AppLovin после CPM-бэкоффа. Если экран не виден — откладываем

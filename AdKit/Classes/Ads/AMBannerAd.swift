@@ -342,8 +342,11 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         if let bannerView = self.appLovinBannerView {
             attachBanner(bannerView, to: containerView)
             resumeAutoRefresh()
-            appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-            bannerView.loadAd()
+            AdInitializer.shared.whenAppLovinReady { [weak self, weak bannerView] in
+                guard let self = self, let bannerView = bannerView else { return }
+                self.appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+                bannerView.loadAd()
+            }
             return hostView
         }
         
@@ -362,8 +365,11 @@ class AMBannerAd: NSObject, BannerViewDelegate, AdViewDelegate, MAAdViewAdDelega
         bannerView.delegate = self
         bannerView.revenueDelegate = self
         bannerView.frame = CGRect(x: 0, y: 0, width: adWidth, height: adHeight)
-        appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-        bannerView.loadAd()
+        AdInitializer.shared.whenAppLovinReady { [weak self, weak bannerView] in
+            guard let self = self, let bannerView = bannerView else { return }
+            self.appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+            bannerView.loadAd()
+        }
         self.appLovinBannerView = bannerView
         
         attachBanner(bannerView, to: containerView)

@@ -139,18 +139,21 @@ public class AMInterstitialAd: NSObject, FullScreenContentDelegate, Interstitial
     }
     
     private func loadAppLovinAd() {
-        AdKit.analytics.trackFullAdDidRequest(
-            in: self.ad.placement,
-            type: "Interstitial",
-            displayCount: AdKit.storage.interstitialDisplayCount,
-            fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
-            totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
-        )
-        appLovinInterstitial = MAInterstitialAd(adUnitIdentifier: self.ad.appLovinID)
-        appLovinInterstitial?.delegate = self
-        appLovinInterstitial?.revenueDelegate = self
-        appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
-        appLovinInterstitial?.load()
+        AdInitializer.shared.whenAppLovinReady { [weak self] in
+            guard let self = self else { return }
+            AdKit.analytics.trackFullAdDidRequest(
+                in: self.ad.placement,
+                type: "Interstitial",
+                displayCount: AdKit.storage.interstitialDisplayCount,
+                fullScreenDisplayCount: AdKit.storage.fullScreenDisplayCount,
+                totalAdsDisplayCount: AdKit.storage.totalAdsDisplayCount
+            )
+            appLovinInterstitial = MAInterstitialAd(adUnitIdentifier: self.ad.appLovinID)
+            appLovinInterstitial?.delegate = self
+            appLovinInterstitial?.revenueDelegate = self
+            appLovinLoadStartDate = AdLoadTimeTracker.loadStarted()
+            appLovinInterstitial?.load()
+        }
     }
     
     // MARK: - Ad Presentation
