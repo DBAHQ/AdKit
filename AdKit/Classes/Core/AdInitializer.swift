@@ -26,6 +26,9 @@ public class AdInitializer: NSObject {
     private var isAppLovinInitialized = false
     /// Загрузки AppLovin, пришедшие до колбэка `ALSdk.initialize` — иначе MAX отвечает SDK_NOT_INITIALIZED.
     private var pendingAppLovinLoads: [() -> Void] = []
+    /// Пауза после колбэка MAX перед первыми загрузками: адаптеры сетей (Unity, Mintegral и т.д.)
+    /// доинициализируются чуть позже самого MAX — рекомендация AppLovin против SDK_NOT_INITIALIZED.
+    private static let appLovinAdaptersGracePeriod: TimeInterval = 0.3
     private var hasRequestedConsent = false
     private var isRequestingATT = false
     
@@ -95,7 +98,9 @@ public class AdInitializer: NSObject {
             }
             ALSdk.shared().initialize(with: initConfig) { sdkConfig in
                 DispatchQueue.main.async {
-                    self.markAppLovinInitialized()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Self.appLovinAdaptersGracePeriod) {
+                        self.markAppLovinInitialized()
+                    }
                     // Рекламный SDK поднят — самое раннее осмысленное время для AppOpen.
                     AdManager.shared.preloadAppOpen()
                     // eventService доступен только после инициализации — сливаем
@@ -115,7 +120,7 @@ public class AdInitializer: NSObject {
     }
 
     /// Выполняет загрузку AppLovin сразу, если SDK уже инициализирован, иначе — после колбэка инициализации.
-    /// Ждём только сам ALSdk: инициализацию адаптеров сетей не ждём.
+    /// Ждём сам ALSdk плюс `appLovinAdaptersGracePeriod`; полную инициализацию адаптеров не ждём.
     func whenAppLovinReady(_ load: @escaping () -> Void) {
         if Thread.isMainThread {
             enqueueAppLovinLoad(load)
